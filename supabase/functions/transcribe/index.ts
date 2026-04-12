@@ -12,13 +12,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const RAILWAY_URL = Deno.env.get("RAILWAY_URL");
+    let RAILWAY_URL = Deno.env.get("RAILWAY_URL");
     if (!RAILWAY_URL) {
       return new Response(
         JSON.stringify({ error: "Railway server URL not configured. Please add RAILWAY_URL secret." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    if (!RAILWAY_URL.startsWith("http://") && !RAILWAY_URL.startsWith("https://")) {
+      RAILWAY_URL = `https://${RAILWAY_URL}`;
+    }
+    RAILWAY_URL = RAILWAY_URL.replace(/\/$/, "");
 
     const incomingForm = await req.formData();
     const audioFile = incomingForm.get("audio") as File | null;
