@@ -17,18 +17,19 @@ RUN pip install --no-cache-dir \
     -r requirements.txt
 
 ARG HF_TOKEN
-RUN python -c "\
-import os; \
-os.environ['HF_TOKEN'] = os.environ.get('HF_TOKEN', ''); \
-from huggingface_hub import login; \
-token = os.environ.get('HF_TOKEN', ''); \
-if token: login(token=token); \
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor; \
-import torch; \
-model_id = 'ivrit-ai/whisper-large-v3-turbo'; \
-AutoModelForSpeechSeq2Seq.from_pretrained(model_id, torch_dtype=torch.float32, low_cpu_mem_usage=True, use_safetensors=True); \
-AutoProcessor.from_pretrained(model_id); \
-print('Model downloaded successfully')"
+RUN python <<'PYEOF'
+import os
+from huggingface_hub import login
+token = os.environ.get('HF_TOKEN', '')
+if token:
+    login(token=token)
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+import torch
+model_id = 'ivrit-ai/whisper-large-v3-turbo'
+AutoModelForSpeechSeq2Seq.from_pretrained(model_id, torch_dtype=torch.float32, low_cpu_mem_usage=True, use_safetensors=True)
+AutoProcessor.from_pretrained(model_id)
+print('Model downloaded successfully')
+PYEOF
 
 COPY railway/server.py .
 
