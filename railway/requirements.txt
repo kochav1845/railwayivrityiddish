@@ -1,8 +1,8 @@
 fastapi==0.115.6
 uvicorn==0.32.1
 transformers==4.47.1
-torch==2.5.1
-torchaudio==2.5.1
+torch==2.5.1+cpu
+torchaudio==2.5.1+cpu
 accelerate==1.2.1
 safetensors==0.4.5
 python-multipart==0.0.20
