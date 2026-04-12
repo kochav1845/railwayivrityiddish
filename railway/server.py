@@ -12,6 +12,11 @@ _pipe = None
 _device = None
 
 
+@app.on_event("startup")
+def load_model_on_startup():
+    get_pipe()
+
+
 def get_pipe():
     global _pipe, _device
     if _pipe is None:
