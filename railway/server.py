@@ -20,23 +20,21 @@ def get_pipe():
         import torch
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
-        hf_token = os.environ.get("HF_TOKEN")
-
         _device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-        print(f"Loading model {MODEL_ID} on {_device}...")
+        print(f"Loading model {MODEL_ID} on {_device} from local cache...")
 
         model = AutoModelForSpeechSeq2Seq.from_pretrained(
             MODEL_ID,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=True,
             use_safetensors=True,
-            token=hf_token,
+            local_files_only=True,
         )
         model.to(_device)
 
-        processor = AutoProcessor.from_pretrained(MODEL_ID, token=hf_token)
+        processor = AutoProcessor.from_pretrained(MODEL_ID, local_files_only=True)
 
         _pipe = pipeline(
             "automatic-speech-recognition",
