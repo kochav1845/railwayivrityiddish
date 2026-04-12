@@ -1,5 +1,6 @@
 import os
 import tempfile
+import traceback
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -10,18 +11,16 @@ MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-he"
 
 _pipe = None
 _device = None
-
-
-@app.on_event("startup")
-def load_model_on_startup():
-    get_pipe()
+_load_error = None
 
 
 def get_pipe():
-    global _pipe, _device
+    global _pipe, _device, _load_error
     if _pipe is None:
         import torch
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+
+        hf_token = os.environ.get("HF_TOKEN")
 
         _device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
@@ -33,10 +32,11 @@ def get_pipe():
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=True,
             use_safetensors=True,
+            token=hf_token,
         )
         model.to(_device)
 
-        processor = AutoProcessor.from_pretrained(MODEL_ID)
+        processor = AutoProcessor.from_pretrained(MODEL_ID, token=hf_token)
 
         _pipe = pipeline(
             "automatic-speech-recognition",
@@ -52,13 +52,25 @@ def get_pipe():
     return _pipe
 
 
+@app.on_event("startup")
+def load_model_on_startup():
+    global _load_error
+    try:
+        get_pipe()
+    except Exception as e:
+        _load_error = str(e)
+        print(f"WARNING: Model failed to load at startup: {e}")
+        traceback.print_exc()
+
+
 @app.get("/health")
 def health():
     return {
-        "status": "ok",
+        "status": "ok" if _pipe is not None else "degraded",
         "model": MODEL_ID,
         "device": _device or "not_loaded",
         "model_loaded": _pipe is not None,
+        "load_error": _load_error,
     }
 
 
@@ -71,6 +83,14 @@ async def transcribe(audio: UploadFile = File(...)):
         ):
             raise HTTPException(status_code=400, detail="Invalid audio file")
 
+    try:
+        pipe = get_pipe()
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Model not available: {e}",
+        )
+
     with tempfile.NamedTemporaryFile(
         delete=False,
         suffix=os.path.splitext(audio.filename or ".wav")[1],
@@ -80,7 +100,6 @@ async def transcribe(audio: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        pipe = get_pipe()
         result = pipe(
             tmp_path,
             generate_kwargs={"task": "transcribe", "language": "hebrew"},
