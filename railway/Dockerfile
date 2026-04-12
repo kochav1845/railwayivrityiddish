@@ -7,12 +7,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY railway/requirements.txt .
 RUN pip install --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r requirements.txt
 
-COPY server.py .
+COPY railway/server.py .
 
 ENV PORT=8000
 EXPOSE 8000
