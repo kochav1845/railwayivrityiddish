@@ -1,6 +1,5 @@
 import os
 import tempfile
-import torch
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -10,17 +9,19 @@ app = FastAPI()
 MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-he"
 
 _pipe = None
+_device = None
 
 
 def get_pipe():
-    global _pipe
+    global _pipe, _device
     if _pipe is None:
+        import torch
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-        print(f"Loading model {MODEL_ID} on {device}...")
+        print(f"Loading model {MODEL_ID} on {_device}...")
 
         model = AutoModelForSpeechSeq2Seq.from_pretrained(
             MODEL_ID,
@@ -28,7 +29,7 @@ def get_pipe():
             low_cpu_mem_usage=True,
             use_safetensors=True,
         )
-        model.to(device)
+        model.to(_device)
 
         processor = AutoProcessor.from_pretrained(MODEL_ID)
 
@@ -38,7 +39,7 @@ def get_pipe():
             tokenizer=processor.tokenizer,
             feature_extractor=processor.feature_extractor,
             torch_dtype=torch_dtype,
-            device=device,
+            device=_device,
         )
 
         print("Model loaded and ready.")
@@ -48,8 +49,12 @@ def get_pipe():
 
 @app.get("/health")
 def health():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    return {"status": "ok", "model": MODEL_ID, "device": device, "model_loaded": _pipe is not None}
+    return {
+        "status": "ok",
+        "model": MODEL_ID,
+        "device": _device or "not_loaded",
+        "model_loaded": _pipe is not None,
+    }
 
 
 @app.post("/transcribe")
@@ -61,7 +66,10 @@ async def transcribe(audio: UploadFile = File(...)):
         ):
             raise HTTPException(status_code=400, detail="Invalid audio file")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(audio.filename or ".wav")[1]) as tmp:
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=os.path.splitext(audio.filename or ".wav")[1],
+    ) as tmp:
         contents = await audio.read()
         tmp.write(contents)
         tmp_path = tmp.name
