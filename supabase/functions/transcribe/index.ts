@@ -34,8 +34,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const arrayBuffer = await audioFile.arrayBuffer();
+    const blob = new Blob([arrayBuffer], { type: audioFile.type || "audio/webm" });
+    const filename = audioFile.name || "recording.webm";
+
     const outgoingForm = new FormData();
-    outgoingForm.append("audio", audioFile, audioFile.name);
+    outgoingForm.append("audio", blob, filename);
 
     const railwayResponse = await fetch(`${RAILWAY_URL}/transcribe`, {
       method: "POST",

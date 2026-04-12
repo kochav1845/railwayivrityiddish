@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import traceback
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -87,17 +88,28 @@ async def transcribe(audio: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Model not available: {e}")
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=os.path.splitext(audio.filename or ".wav")[1],
-    ) as tmp:
-        contents = await audio.read()
+    contents = await audio.read()
+    ext = os.path.splitext(audio.filename or ".wav")[1].lower()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
 
+    wav_path = None
     try:
+        input_path = tmp_path
+        if ext in (".webm", ".ogg", ".m4a", ".mp4"):
+            wav_path = tmp_path.rsplit(".", 1)[0] + ".wav"
+            proc = subprocess.run(
+                ["ffmpeg", "-y", "-i", tmp_path, "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                capture_output=True,
+                timeout=120,
+            )
+            if proc.returncode == 0:
+                input_path = wav_path
+
         result = pipe(
-            tmp_path,
+            input_path,
             generate_kwargs={"task": "transcribe", "language": "yi"},
             return_timestamps=False,
         )
@@ -110,6 +122,8 @@ async def transcribe(audio: UploadFile = File(...)):
         })
     finally:
         os.unlink(tmp_path)
+        if wav_path and os.path.exists(wav_path):
+            os.unlink(wav_path)
 
 
 if __name__ == "__main__":
