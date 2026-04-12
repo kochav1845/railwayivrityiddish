@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn==0.32.1
+transformers==4.47.1
+torch==2.5.1
+torchaudio==2.5.1
+accelerate==1.2.1
+safetensors==0.4.5
+python-multipart==0.0.20
+librosa==0.10.2
+soundfile==0.12.1
+ffmpeg-python==0.2.0
