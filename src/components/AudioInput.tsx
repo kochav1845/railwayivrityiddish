@@ -19,9 +19,13 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
   const handleFile = useCallback(
     (file: File) => {
       setError(null);
-      const validTypes = ["audio/wav", "audio/mp3", "audio/mpeg", "audio/ogg", "audio/flac", "audio/webm", "audio/m4a", "audio/mp4"];
-      if (!validTypes.some((t) => file.type.startsWith("audio/")) && !file.name.match(/\.(wav|mp3|ogg|flac|webm|m4a|mp4)$/i)) {
-        setError("Please upload a valid audio file (WAV, MP3, OGG, FLAC, M4A, WEBM).");
+      if (
+        !file.type.startsWith("audio/") &&
+        !file.name.match(/\.(wav|mp3|ogg|flac|webm|m4a|mp4)$/i)
+      ) {
+        setError(
+          "ביטע לאָדט אַרויף אַ גילטיקע אַודיאָ טעקע (WAV, MP3, OGG, FLAC, M4A, WEBM)"
+        );
         return;
       }
       onTranscribe(file);
@@ -59,7 +63,9 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
 
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const file = new File([blob], `recording-${Date.now()}.webm`, { type: "audio/webm" });
+        const file = new File([blob], `recording-${Date.now()}.webm`, {
+          type: "audio/webm",
+        });
         stream.getTracks().forEach((t) => t.stop());
         handleFile(file);
       };
@@ -67,9 +73,12 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
       recorder.start(100);
       setIsRecording(true);
       setRecordingTime(0);
-      timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+      timerRef.current = setInterval(
+        () => setRecordingTime((t) => t + 1),
+        1000
+      );
     } catch {
-      setError("Microphone access denied. Please allow microphone permissions.");
+      setError("צוטריט צום מיקראָפֿאָן איז פֿאַרוואָרפֿן געוואָרן. ביטע דערלויבט מיקראָפֿאָן צוטריט.");
     }
   };
 
@@ -81,19 +90,31 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
     }
   };
 
-  const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const formatTime = (s: number) =>
+    `${Math.floor(s / 60)
+      .toString()
+      .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5" dir="rtl">
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        onClick={() => !isLoading && !isRecording && fileInputRef.current?.click()}
+        onClick={() =>
+          !isLoading && !isRecording && fileInputRef.current?.click()
+        }
         className={`
-          relative border-2 border-dashed rounded-2xl p-10 text-center transition-all duration-200 cursor-pointer
-          ${isDragging ? "border-amber-500 bg-amber-50" : "border-stone-300 hover:border-amber-400 hover:bg-amber-50/40"}
-          ${isLoading || isRecording ? "pointer-events-none opacity-60" : ""}
+          relative border-2 border-dashed rounded-2xl p-10 text-center transition-all duration-200 cursor-pointer group
+          ${
+            isDragging
+              ? "border-amber-500 bg-amber-50/80"
+              : "border-stone-300 hover:border-amber-400 hover:bg-amber-50/30"
+          }
+          ${isLoading || isRecording ? "pointer-events-none opacity-50" : ""}
         `}
       >
         <input
@@ -103,14 +124,26 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
           onChange={handleFileChange}
           className="hidden"
         />
-        <Upload className="mx-auto mb-3 text-amber-600" size={36} strokeWidth={1.5} />
-        <p className="text-stone-700 font-medium text-lg">Drop audio file here</p>
-        <p className="text-stone-500 text-sm mt-1">or click to browse &mdash; WAV, MP3, OGG, FLAC, M4A, WEBM</p>
+        <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4 group-hover:bg-amber-200 transition-colors duration-200">
+          <Upload
+            className="text-amber-600"
+            size={24}
+            strokeWidth={1.5}
+          />
+        </div>
+        <p className="text-stone-800 font-semibold text-lg font-hebrew">
+          שלעפּט אַהער אַ אַודיאָ טעקע
+        </p>
+        <p className="text-stone-400 text-sm mt-1.5 font-hebrew">
+          אָדער דריקט צו בלעטערן &mdash; WAV, MP3, OGG, FLAC, M4A, WEBM
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-stone-200" />
-        <span className="text-stone-400 text-sm font-medium">or record</span>
+        <span className="text-stone-400 text-sm font-medium font-hebrew">
+          אָדער נעמט אויף
+        </span>
         <div className="flex-1 h-px bg-stone-200" />
       </div>
 
@@ -119,30 +152,38 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
           <button
             onClick={startRecording}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors duration-150 shadow-sm"
+            className="flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-l from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-all duration-200 shadow-md shadow-amber-200/40 hover:shadow-lg hover:shadow-amber-200/50"
           >
             <Mic size={18} />
-            Start Recording
+            <span className="font-hebrew">אָנהייבן אויפֿנעמען</span>
           </button>
         ) : (
-          <button
-            onClick={stopRecording}
-            className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors duration-150 shadow-sm animate-pulse"
-          >
-            <Square size={18} />
-            Stop &mdash; {formatTime(recordingTime)}
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-red-400 animate-pulse-ring" />
+              <button
+                onClick={stopRecording}
+                className="relative flex items-center gap-2.5 px-7 py-3.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors duration-150 shadow-md"
+              >
+                <Square size={16} />
+                <span className="font-sans">{formatTime(recordingTime)}</span>
+                <span className="font-hebrew">&mdash; אָפּשטעלן</span>
+              </button>
+            </div>
+          </div>
         )}
         {isLoading && (
           <div className="flex items-center gap-2 text-amber-700 font-medium">
             <Loader2 size={20} className="animate-spin" />
-            Transcribing...
+            <span className="font-hebrew">טראַנסקריבירט...</span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm">
+        <div
+          className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm font-hebrew"
+        >
           <AlertCircle size={16} className="shrink-0" />
           {error}
         </div>

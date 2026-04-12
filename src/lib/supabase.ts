@@ -7,6 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface Transcription {
   id: string;
+  user_id: string | null;
   filename: string;
   transcription: string;
   language: string;

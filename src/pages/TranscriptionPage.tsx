@@ -1,16 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
-import { Mic2 } from "lucide-react";
 import AudioInput from "../components/AudioInput";
 import TranscriptionResult from "../components/TranscriptionResult";
 import TranscriptionHistory from "../components/TranscriptionHistory";
+import AppHeader from "../components/AppHeader";
 import { supabase, type Transcription } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export default function TranscriptionPage() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{ text: string; filename: string } | null>(null);
+  const [result, setResult] = useState<{
+    text: string;
+    filename: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Transcription[]>([]);
 
@@ -18,10 +23,11 @@ export default function TranscriptionPage() {
     const { data } = await supabase
       .from("transcriptions")
       .select("*")
+      .eq("user_id", user?.id ?? "")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
     if (data) setHistory(data as Transcription[]);
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadHistory();
@@ -46,7 +52,7 @@ export default function TranscriptionPage() {
       const json = await response.json();
 
       if (!response.ok || json.error) {
-        setError(json.error ?? "Transcription failed. Please try again.");
+        setError(json.error ?? "טראַנסקריפּציע איז דורכגעפֿאַלן. פּרובירט נאָכאַמאָל.");
         return;
       }
 
@@ -58,57 +64,75 @@ export default function TranscriptionPage() {
         transcription: transcriptionText,
         file_size_bytes: file.size,
         language: "yiddish",
+        user_id: user?.id,
       });
 
       await loadHistory();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "נעטוואָרק פֿעלער. פּרובירט נאָכאַמאָל."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDelete = async (id: string) => {
+    await supabase.from("transcriptions").delete().eq("id", id);
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return (
-    <div className="min-h-screen bg-[#faf8f5]">
-      <header className="bg-white border-b border-stone-200 shadow-sm">
-        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center shadow-sm">
-            <Mic2 size={20} className="text-white" strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-stone-900 leading-tight">Yiddish Transcriber</h1>
-            <p className="text-stone-500 text-xs">Powered by ivrit-ai / yi-whisper-large-v3-turbo</p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-stone-100/50">
+      <AppHeader />
 
       <main className="max-w-3xl mx-auto px-6 py-10">
-        <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 mb-6">
-          <h2 className="text-2xl font-bold text-stone-900 mb-1">Transcribe Yiddish Audio</h2>
-          <p className="text-stone-500 text-sm mb-7">
-            Upload an audio file or record directly in your browser. The model will transcribe spoken Yiddish.
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/80 shadow-lg shadow-stone-200/20 p-8 mb-8">
+          <h2
+            className="text-2xl font-bold text-stone-900 mb-1 font-hebrew"
+            dir="rtl"
+          >
+            טראַנסקריבירט יידיש אַודיאָ
+          </h2>
+          <p className="text-stone-500 text-sm mb-7 font-hebrew" dir="rtl">
+            לאָדט אַרויף אַ אַודיאָ טעקע אָדער נעמט אויף דירעקט אין בלעטערער.
+            דער מאָדעל וועט טראַנסקריבירן גערעדט יידיש.
           </p>
           <AudioInput onTranscribe={handleTranscribe} isLoading={isLoading} />
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium">
+          <div
+            className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium font-hebrew animate-fade-in"
+            dir="rtl"
+          >
             {error}
           </div>
         )}
 
         {result && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3">Transcription</h3>
-            <TranscriptionResult text={result.text} filename={result.filename} />
+          <div className="mb-8">
+            <h3
+              className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3 font-hebrew"
+              dir="rtl"
+            >
+              טראַנסקריפּציע
+            </h3>
+            <TranscriptionResult
+              text={result.text}
+              filename={result.filename}
+            />
           </div>
         )}
 
-        <TranscriptionHistory items={history} />
+        <TranscriptionHistory items={history} onDelete={handleDelete} />
       </main>
 
-      <footer className="text-center text-stone-400 text-xs py-8">
-        ivrit-ai &middot; yi-whisper-large-v3-turbo &middot; Yiddish speech recognition
+      <footer className="text-center text-stone-400 text-xs py-8 font-sans">
+        ivrit-ai &middot; yi-whisper-large-v3-turbo &middot; יידיש שפּראַך
+        דערקענונג
       </footer>
     </div>
   );
