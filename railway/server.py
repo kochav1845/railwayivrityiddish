@@ -7,7 +7,7 @@ import uvicorn
 
 app = FastAPI()
 
-MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-he"
+MODEL_ID = "ivrit-ai/whisper-large-v3-turbo"
 
 _pipe = None
 _device = None
