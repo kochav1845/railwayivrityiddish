@@ -25,10 +25,12 @@ if token:
     login(token=token)
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
 import torch
-model_id = 'ivrit-ai/whisper-large-v3-turbo'
-AutoModelForSpeechSeq2Seq.from_pretrained(model_id, torch_dtype=torch.float32, low_cpu_mem_usage=True, use_safetensors=True)
-AutoProcessor.from_pretrained(model_id)
-print('Model downloaded successfully')
+
+for model_id in ['ivrit-ai/whisper-large-v3-turbo', 'ivrit-ai/yi-whisper-large-v3-turbo']:
+    print(f'Downloading {model_id}...')
+    AutoModelForSpeechSeq2Seq.from_pretrained(model_id, torch_dtype=torch.float32, low_cpu_mem_usage=True, use_safetensors=True)
+    AutoProcessor.from_pretrained(model_id)
+    print(f'{model_id} downloaded successfully')
 PYEOF
 
 COPY railway/server.py .

@@ -44,9 +44,18 @@ export default function TranscriptionHistory({ items }: TranscriptionHistoryProp
                 <FileAudio size={16} className="text-amber-600 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-stone-800 font-medium text-sm truncate">{item.filename || "Untitled"}</p>
-                  <p className="text-stone-400 text-xs mt-0.5">
-                    {formatDate(item.created_at)}
-                    {formatBytes(item.file_size_bytes) && ` · ${formatBytes(item.file_size_bytes)}`}
+                  <p className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>{formatDate(item.created_at)}</span>
+                    {formatBytes(item.file_size_bytes) && <span>· {formatBytes(item.file_size_bytes)}</span>}
+                    {item.language && (
+                      <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${
+                        item.language === "yiddish"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-sky-100 text-sky-700"
+                      }`}>
+                        {item.language}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

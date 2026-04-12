@@ -9,6 +9,7 @@ export interface Transcription {
   id: string;
   filename: string;
   transcription: string;
+  language: string;
   duration_seconds: number | null;
   file_size_bytes: number | null;
   created_at: string;

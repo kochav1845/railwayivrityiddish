@@ -3,16 +3,20 @@ import { Mic2 } from "lucide-react";
 import AudioInput from "../components/AudioInput";
 import TranscriptionResult from "../components/TranscriptionResult";
 import TranscriptionHistory from "../components/TranscriptionHistory";
+import LanguageSelector from "../components/LanguageSelector";
 import { supabase, type Transcription } from "../lib/supabase";
 
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+export type Language = "yiddish" | "hebrew";
 
 export default function TranscriptionPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ text: string; filename: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Transcription[]>([]);
+  const [language, setLanguage] = useState<Language>("yiddish");
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -35,6 +39,7 @@ export default function TranscriptionPage() {
     try {
       const formData = new FormData();
       formData.append("audio", file);
+      formData.append("language", language);
 
       const response = await fetch(EDGE_URL, {
         method: "POST",
@@ -56,6 +61,7 @@ export default function TranscriptionPage() {
         filename: file.name,
         transcription: transcriptionText,
         file_size_bytes: file.size,
+        language,
       });
 
       await loadHistory();
@@ -66,25 +72,30 @@ export default function TranscriptionPage() {
     }
   };
 
+  const languageLabel = language === "yiddish" ? "Yiddish" : "Hebrew";
+
   return (
     <div className="min-h-screen bg-[#faf8f5]">
       <header className="bg-white border-b border-stone-200 shadow-sm">
-        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center shadow-sm">
-            <Mic2 size={20} className="text-white" strokeWidth={2} />
+        <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center shadow-sm">
+              <Mic2 size={20} className="text-white" strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-stone-900 leading-tight">Transcriber</h1>
+              <p className="text-stone-500 text-xs">Powered by ivrit-ai / Whisper Large v3</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-stone-900 leading-tight">Yiddish Transcriber</h1>
-            <p className="text-stone-500 text-xs">Powered by ivrit-ai / Whisper Large v3</p>
-          </div>
+          <LanguageSelector value={language} onChange={setLanguage} disabled={isLoading} />
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-8 mb-6">
-          <h2 className="text-2xl font-bold text-stone-900 mb-1">Transcribe Yiddish Audio</h2>
+          <h2 className="text-2xl font-bold text-stone-900 mb-1">Transcribe {languageLabel} Audio</h2>
           <p className="text-stone-500 text-sm mb-7">
-            Upload an audio file or record directly in your browser. The model will transcribe spoken Yiddish.
+            Upload an audio file or record directly in your browser. The model will transcribe spoken {languageLabel}.
           </p>
           <AudioInput onTranscribe={handleTranscribe} isLoading={isLoading} />
         </div>
@@ -106,7 +117,7 @@ export default function TranscriptionPage() {
       </main>
 
       <footer className="text-center text-stone-400 text-xs py-8">
-        ivrit-ai &middot; whisper-large-v3-turbo &middot; Yiddish speech recognition
+        ivrit-ai &middot; whisper-large-v3-turbo &middot; Hebrew &amp; Yiddish speech recognition
       </footer>
     </div>
   );

@@ -26,6 +26,7 @@ Deno.serve(async (req: Request) => {
 
     const incomingForm = await req.formData();
     const audioFile = incomingForm.get("audio") as File | null;
+    const language = (incomingForm.get("language") as string) || "hebrew";
 
     if (!audioFile) {
       return new Response(
@@ -36,6 +37,7 @@ Deno.serve(async (req: Request) => {
 
     const outgoingForm = new FormData();
     outgoingForm.append("audio", audioFile, audioFile.name);
+    outgoingForm.append("language", language);
 
     const railwayResponse = await fetch(`${RAILWAY_URL}/transcribe`, {
       method: "POST",
