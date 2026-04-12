@@ -1,6 +1,9 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "dockerfilePath": "railway/Dockerfile"
+    "dockerfilePath": "railway/Dockerfile",
+    "buildArgs": {
+      "HF_TOKEN": "${{HF_TOKEN}}"
+    }
   }
 }
