@@ -4,42 +4,52 @@ import torch
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
 app = FastAPI()
 
 MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-he"
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+_pipe = None
 
-print(f"Loading model {MODEL_ID} on {device}...")
 
-model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    MODEL_ID,
-    torch_dtype=torch_dtype,
-    low_cpu_mem_usage=True,
-    use_safetensors=True,
-)
-model.to(device)
+def get_pipe():
+    global _pipe
+    if _pipe is None:
+        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
-processor = AutoProcessor.from_pretrained(MODEL_ID)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-pipe = pipeline(
-    "automatic-speech-recognition",
-    model=model,
-    tokenizer=processor.tokenizer,
-    feature_extractor=processor.feature_extractor,
-    torch_dtype=torch_dtype,
-    device=device,
-)
+        print(f"Loading model {MODEL_ID} on {device}...")
 
-print("Model loaded and ready.")
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            MODEL_ID,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=True,
+            use_safetensors=True,
+        )
+        model.to(device)
+
+        processor = AutoProcessor.from_pretrained(MODEL_ID)
+
+        _pipe = pipeline(
+            "automatic-speech-recognition",
+            model=model,
+            tokenizer=processor.tokenizer,
+            feature_extractor=processor.feature_extractor,
+            torch_dtype=torch_dtype,
+            device=device,
+        )
+
+        print("Model loaded and ready.")
+
+    return _pipe
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": MODEL_ID, "device": device}
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    return {"status": "ok", "model": MODEL_ID, "device": device, "model_loaded": _pipe is not None}
 
 
 @app.post("/transcribe")
@@ -57,6 +67,7 @@ async def transcribe(audio: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
+        pipe = get_pipe()
         result = pipe(
             tmp_path,
             generate_kwargs={"task": "transcribe", "language": "hebrew"},
