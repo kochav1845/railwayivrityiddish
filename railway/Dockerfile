@@ -12,11 +12,6 @@ RUN pip install --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r requirements.txt
 
-RUN python -c "\
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor; \
-AutoModelForSpeechSeq2Seq.from_pretrained('ivrit-ai/whisper-large-v3-turbo-he', use_safetensors=True, low_cpu_mem_usage=True); \
-AutoProcessor.from_pretrained('ivrit-ai/whisper-large-v3-turbo-he'); \
-print('Model pre-downloaded successfully')"
 
 COPY railway/server.py .
 
