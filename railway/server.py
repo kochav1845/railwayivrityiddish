@@ -98,7 +98,7 @@ async def transcribe(audio: UploadFile = File(...)):
     try:
         result = pipe(
             tmp_path,
-            generate_kwargs={"task": "transcribe", "language": "yiddish"},
+            generate_kwargs={"task": "transcribe", "language": "yi"},
             return_timestamps=False,
         )
         transcription = result.get("text", "").strip()
