@@ -14,7 +14,6 @@ RUN pip install --no-cache-dir \
 
 COPY railway/server.py .
 
-ENV PORT=8000
-EXPOSE 8000
+EXPOSE 8080
 
 CMD ["python", "-u", "server.py"]
