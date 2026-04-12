@@ -1,47 +1,34 @@
 import os
 import tempfile
 import traceback
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
 
 app = FastAPI()
 
-MODELS = {
-    "hebrew": {
-        "id": "ivrit-ai/whisper-large-v3-turbo",
-        "language": "hebrew",
-    },
-    "yiddish": {
-        "id": "ivrit-ai/yi-whisper-large-v3-turbo",
-        "language": "yiddish",
-    },
-}
+MODEL_ID = "ivrit-ai/yi-whisper-large-v3-turbo"
 
-_pipes = {}
+_pipe = None
 _device = None
-_load_errors = {}
+_load_error = None
 
 
-def get_pipe(lang: str):
-    global _device
-    if lang not in MODELS:
-        raise ValueError(f"Unsupported language: {lang}")
-
-    if lang in _pipes:
-        return _pipes[lang]
+def get_pipe():
+    global _pipe, _device
+    if _pipe is not None:
+        return _pipe
 
     import torch
     from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
     _device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    model_id = MODELS[lang]["id"]
 
-    print(f"Loading model {model_id} on {_device} from local cache...")
+    print(f"Loading model {MODEL_ID} on {_device} from local cache...")
 
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_id,
+        MODEL_ID,
         torch_dtype=torch_dtype,
         low_cpu_mem_usage=True,
         use_safetensors=True,
@@ -49,9 +36,9 @@ def get_pipe(lang: str):
     )
     model.to(_device)
 
-    processor = AutoProcessor.from_pretrained(model_id, local_files_only=True)
+    processor = AutoProcessor.from_pretrained(MODEL_ID, local_files_only=True)
 
-    pipe = pipeline(
+    _pipe = pipeline(
         "automatic-speech-recognition",
         model=model,
         tokenizer=processor.tokenizer,
@@ -60,47 +47,34 @@ def get_pipe(lang: str):
         device=_device,
     )
 
-    _pipes[lang] = pipe
-    print(f"Model {model_id} loaded and ready.")
-    return pipe
+    print(f"Model {MODEL_ID} loaded and ready.")
+    return _pipe
 
 
 @app.on_event("startup")
-def load_models_on_startup():
-    for lang in MODELS:
-        try:
-            get_pipe(lang)
-        except Exception as e:
-            _load_errors[lang] = str(e)
-            print(f"WARNING: {lang} model failed to load at startup: {e}")
-            traceback.print_exc()
+def load_model_on_startup():
+    global _load_error
+    try:
+        get_pipe()
+    except Exception as e:
+        _load_error = str(e)
+        print(f"WARNING: Model failed to load at startup: {e}")
+        traceback.print_exc()
 
 
 @app.get("/health")
 def health():
     return {
-        "status": "ok" if len(_pipes) == len(MODELS) else "degraded",
-        "models": {
-            lang: {
-                "model_id": cfg["id"],
-                "loaded": lang in _pipes,
-                "error": _load_errors.get(lang),
-            }
-            for lang, cfg in MODELS.items()
-        },
+        "status": "ok" if _pipe is not None else "degraded",
+        "model_id": MODEL_ID,
+        "loaded": _pipe is not None,
+        "error": _load_error,
         "device": _device or "not_loaded",
     }
 
 
 @app.post("/transcribe")
-async def transcribe(
-    audio: UploadFile = File(...),
-    language: str = Form("hebrew"),
-):
-    lang = language.lower().strip()
-    if lang not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}. Supported: {', '.join(MODELS.keys())}")
-
+async def transcribe(audio: UploadFile = File(...)):
     if not audio.content_type or not audio.content_type.startswith("audio/"):
         if not audio.filename or not any(
             audio.filename.endswith(ext)
@@ -109,12 +83,9 @@ async def transcribe(
             raise HTTPException(status_code=400, detail="Invalid audio file")
 
     try:
-        pipe = get_pipe(lang)
+        pipe = get_pipe()
     except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Model not available for {lang}: {e}",
-        )
+        raise HTTPException(status_code=503, detail=f"Model not available: {e}")
 
     with tempfile.NamedTemporaryFile(
         delete=False,
@@ -127,7 +98,7 @@ async def transcribe(
     try:
         result = pipe(
             tmp_path,
-            generate_kwargs={"task": "transcribe", "language": MODELS[lang]["language"]},
+            generate_kwargs={"task": "transcribe", "language": "yiddish"},
             return_timestamps=False,
         )
         transcription = result.get("text", "").strip()
@@ -135,7 +106,7 @@ async def transcribe(
             "transcription": transcription,
             "filename": audio.filename,
             "file_size_bytes": len(contents),
-            "language": lang,
+            "language": "yiddish",
         })
     finally:
         os.unlink(tmp_path)
