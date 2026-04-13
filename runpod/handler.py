@@ -70,44 +70,74 @@ def load_model():
 
 
 def handler(job):
+    import time
+    job_id = job.get("id", "unknown")
+    print(f"[JOB {job_id}] === Handler started ===")
+    start_time = time.time()
+
     job_input = job["input"]
+    print(f"[JOB {job_id}] Input keys: {list(job_input.keys())}")
 
     audio_base64 = job_input.get("audio_base64")
     if not audio_base64:
+        print(f"[JOB {job_id}] ERROR: No audio_base64 provided")
         return {"error": "No audio_base64 provided"}
 
     ext = job_input.get("extension", ".webm")
     if not ext.startswith("."):
         ext = f".{ext}"
 
+    print(f"[JOB {job_id}] Decoding base64 audio (length: {len(audio_base64)} chars, ext: {ext})")
     audio_bytes = base64.b64decode(audio_base64)
+    print(f"[JOB {job_id}] Decoded audio: {len(audio_bytes)} bytes")
 
+    print(f"[JOB {job_id}] Loading model...")
+    model_start = time.time()
     asr_pipe = load_model()
+    print(f"[JOB {job_id}] Model ready in {time.time() - model_start:.2f}s")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
+    print(f"[JOB {job_id}] Wrote temp file: {tmp_path}")
 
     wav_path = None
     try:
         input_path = tmp_path
         if ext in (".webm", ".ogg", ".m4a", ".mp4"):
             wav_path = tmp_path.rsplit(".", 1)[0] + ".wav"
+            print(f"[JOB {job_id}] Converting {ext} to WAV via ffmpeg...")
+            ffmpeg_start = time.time()
             proc = subprocess.run(
                 ["ffmpeg", "-y", "-i", tmp_path, "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
                 capture_output=True,
                 timeout=120,
             )
-            if proc.returncode == 0:
+            print(f"[JOB {job_id}] ffmpeg exit code: {proc.returncode} ({time.time() - ffmpeg_start:.2f}s)")
+            if proc.returncode != 0:
+                print(f"[JOB {job_id}] ffmpeg stderr: {proc.stderr.decode()}")
+            else:
                 input_path = wav_path
+        else:
+            print(f"[JOB {job_id}] Skipping ffmpeg conversion (ext={ext})")
 
+        print(f"[JOB {job_id}] Running ASR pipeline on: {input_path}")
+        asr_start = time.time()
         result = asr_pipe(
             input_path,
             generate_kwargs={"task": "transcribe", "language": "yi"},
             return_timestamps=True,
         )
+        print(f"[JOB {job_id}] ASR completed in {time.time() - asr_start:.2f}s")
+        print(f"[JOB {job_id}] Raw result keys: {list(result.keys()) if isinstance(result, dict) else type(result)}")
+
         raw_text = result.get("text", "").strip()
+        print(f"[JOB {job_id}] Raw text ({len(raw_text)} chars): {raw_text[:200]}")
         transcription = re.sub(r'[\u0591-\u05C7]', '', raw_text)
+        print(f"[JOB {job_id}] Cleaned text ({len(transcription)} chars): {transcription[:200]}")
+
+        total_time = time.time() - start_time
+        print(f"[JOB {job_id}] === Handler completed in {total_time:.2f}s ===")
 
         return {
             "transcription": transcription,
@@ -115,6 +145,9 @@ def handler(job):
             "language": "yiddish",
         }
     except Exception as e:
+        print(f"[JOB {job_id}] EXCEPTION: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
     finally:
         os.unlink(tmp_path)
