@@ -33,7 +33,12 @@ async function transcribeWithRunpod(
     ? `.${filename.split(".").pop()}`
     : ".webm";
 
-  const baseUrl = `https://${runpodEndpointId}.api.runpod.ai/v2/${runpodEndpointId}`;
+  let endpointId = runpodEndpointId;
+  const urlMatch = runpodEndpointId.match(/https?:\/\/([^.]+)\.api\.runpod\.ai/);
+  if (urlMatch) {
+    endpointId = urlMatch[1];
+  }
+  const baseUrl = `https://${endpointId}.api.runpod.ai/v2/${endpointId}`;
   const runRes = await fetch(
     `${baseUrl}/run`,
     {
@@ -164,7 +169,7 @@ async function callClaude(
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-3-sonnet-20240229",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }],
