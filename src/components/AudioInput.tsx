@@ -5,11 +5,12 @@ import EditableText from "./EditableText";
 interface AudioInputProps {
   onTranscribe: (file: File) => void;
   isLoading: boolean;
+  statusMsg?: string | null;
 }
 
 const VALID_EXTENSIONS = /\.(wav|mp3|ogg|flac|webm|m4a|mp4)$/i;
 
-export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps) {
+export default function AudioInput({ onTranscribe, isLoading, statusMsg }: AudioInputProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -193,13 +194,9 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
         {isLoading && (
           <div className="flex items-center gap-2 text-amber-700 font-medium">
             <Loader2 size={20} className="animate-spin" />
-            <EditableText
-              contentKey="transcribing_label"
-              defaultValue="טראַנסקריבירט..."
-              as="span"
-              className="font-hebrew"
-              dir="rtl"
-            />
+            <span className="font-hebrew" dir="rtl">
+              {statusMsg || "טראַנסקריבירט..."}
+            </span>
           </div>
         )}
       </div>

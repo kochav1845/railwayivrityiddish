@@ -24,6 +24,7 @@ export default function TranscriptionPage() {
     outputLang: Language;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [history, setHistory] = useState<Transcription[]>([]);
 
   const loadHistory = useCallback(async () => {
@@ -40,13 +41,54 @@ export default function TranscriptionPage() {
     loadHistory();
   }, [loadHistory]);
 
+  const authHeaders = {
+    Authorization: `Bearer ${ANON_KEY}`,
+  };
+
+  const pollRunpodJob = async (jobId: string): Promise<string> => {
+    const maxAttempts = 90;
+    const interval = 3_000;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, interval));
+
+      const res = await fetch(`${EDGE_URL}?jobId=${jobId}`, {
+        headers: authHeaders,
+      });
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      if (data.status === "COMPLETED") return data.rawText ?? "";
+      if (data.status === "FAILED") throw new Error(data.error ?? "Transcription failed");
+    }
+
+    throw new Error("Transcription timed out. Please try again.");
+  };
+
+  const processText = async (
+    rawText: string,
+    inputLang: string,
+    outputLang: string
+  ): Promise<string> => {
+    setStatusMsg("פֿאַרבעסערט טעקסט...");
+
+    const res = await fetch(EDGE_URL, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ rawText, inputLang, outputLang }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error ?? "Processing failed");
+    return data.transcription ?? rawText;
+  };
+
   const handleTranscribe = async (file: File) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180_000);
+    setStatusMsg("שיקט אַודיאָ...");
 
     try {
       const formData = new FormData();
@@ -54,23 +96,32 @@ export default function TranscriptionPage() {
       formData.append("input_language", inputLanguage);
       formData.append("output_language", outputLanguage);
 
-      const response = await fetch(EDGE_URL, {
+      const submitRes = await fetch(EDGE_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${ANON_KEY}` },
+        headers: authHeaders,
         body: formData,
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
+      const submitData = await submitRes.json();
 
-      const json = await response.json();
-
-      if (!response.ok || json.error) {
-        setError(json.error ?? "Transcription failed. Please try again.");
+      if (!submitRes.ok || submitData.error) {
+        setError(submitData.error ?? "Transcription failed. Please try again.");
         return;
       }
 
-      const transcriptionText: string = json.transcription ?? "";
+      let rawText: string;
+
+      if (submitData.provider === "runpod") {
+        setStatusMsg("טראַנסקריבירט אַודיאָ...");
+        rawText = await pollRunpodJob(submitData.jobId);
+      } else {
+        rawText = submitData.rawText ?? "";
+      }
+
+      const inLang = submitData.inputLang ?? inputLanguage;
+      const outLang = submitData.outputLang ?? outputLanguage;
+
+      const transcriptionText = await processText(rawText, inLang, outLang);
 
       setResult({
         text: transcriptionText,
@@ -93,18 +144,14 @@ export default function TranscriptionPage() {
 
       await loadHistory();
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setError("הטראַנסקריפּציע האָט צו לאַנג גענומען. ביטע פּרוּווט נאָכאַמאָל.");
-      } else {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Network error. Please try again."
-        );
-      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Network error. Please try again."
+      );
     } finally {
       setIsLoading(false);
+      setStatusMsg(null);
     }
   };
 
@@ -147,7 +194,7 @@ export default function TranscriptionPage() {
             />
           </div>
 
-          <AudioInput onTranscribe={handleTranscribe} isLoading={isLoading} />
+          <AudioInput onTranscribe={handleTranscribe} isLoading={isLoading} statusMsg={statusMsg} />
         </div>
 
         {error && (
