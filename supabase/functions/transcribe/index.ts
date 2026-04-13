@@ -18,6 +18,16 @@ function stripNikud(text: string): string {
   return text.replace(/[\u0591-\u05C7]/g, "");
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  const chunkSize = 8192;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 async function transcribeWithRunpod(
   audioBlob: Blob,
   filename: string,
@@ -25,9 +35,7 @@ async function transcribeWithRunpod(
   runpodApiKey: string
 ): Promise<string> {
   const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64Audio = btoa(
-    String.fromCharCode(...new Uint8Array(arrayBuffer))
-  );
+  const base64Audio = uint8ToBase64(new Uint8Array(arrayBuffer));
 
   const ext = filename.includes(".")
     ? `.${filename.split(".").pop()}`
@@ -109,9 +117,7 @@ async function transcribeWithGemini(
   apiKey: string
 ): Promise<string> {
   const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64Audio = btoa(
-    String.fromCharCode(...new Uint8Array(arrayBuffer))
-  );
+  const base64Audio = uint8ToBase64(new Uint8Array(arrayBuffer));
 
   const mimeType = audioBlob.type || "audio/webm";
   const langLabel = language === "english" ? "English" : "Hebrew";
