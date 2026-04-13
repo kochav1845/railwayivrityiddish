@@ -4,10 +4,18 @@ import { Copy, Check, FileAudio } from "lucide-react";
 interface TranscriptionResultProps {
   text: string;
   filename: string;
+  language?: string;
 }
 
-export default function TranscriptionResult({ text, filename }: TranscriptionResultProps) {
+const RTL_LANGUAGES = new Set(["yiddish", "hebrew"]);
+
+export default function TranscriptionResult({
+  text,
+  filename,
+  language = "yiddish",
+}: TranscriptionResultProps) {
   const [copied, setCopied] = useState(false);
+  const isRtl = RTL_LANGUAGES.has(language);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text);
@@ -32,20 +40,21 @@ export default function TranscriptionResult({ text, filename }: TranscriptionRes
               ? "bg-emerald-100 text-emerald-700"
               : "hover:bg-amber-100 text-amber-700"
           }`}
-          dir="rtl"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
-          <span className="font-hebrew">{copied ? "קאָפּירט" : "קאָפּירן"}</span>
+          <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
       <div
-        dir="rtl"
-        lang="yi"
-        className="p-6 text-stone-800 leading-[1.8] text-lg font-hebrew whitespace-pre-wrap"
+        dir={isRtl ? "rtl" : "ltr"}
+        lang={language === "yiddish" ? "yi" : language === "hebrew" ? "he" : "en"}
+        className={`p-6 text-stone-800 leading-[1.8] text-lg whitespace-pre-wrap ${
+          isRtl ? "font-hebrew" : "font-sans"
+        }`}
       >
         {text || (
-          <span className="text-stone-400 italic font-hebrew">
-            קיין טראַנסקריפּציע נישט צוריקגעקומען.
+          <span className="text-stone-400 italic">
+            No transcription returned.
           </span>
         )}
       </div>

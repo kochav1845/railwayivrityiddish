@@ -3,6 +3,9 @@ import AudioInput from "../components/AudioInput";
 import TranscriptionResult from "../components/TranscriptionResult";
 import TranscriptionHistory from "../components/TranscriptionHistory";
 import AppHeader from "../components/AppHeader";
+import LanguageSelector, {
+  type Language,
+} from "../components/LanguageSelector";
 import { supabase, type Transcription } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -12,9 +15,12 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 export default function TranscriptionPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [inputLanguage, setInputLanguage] = useState<Language>("yiddish");
+  const [outputLanguage, setOutputLanguage] = useState<Language>("yiddish");
   const [result, setResult] = useState<{
     text: string;
     filename: string;
+    outputLang: Language;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Transcription[]>([]);
@@ -41,7 +47,8 @@ export default function TranscriptionPage() {
     try {
       const formData = new FormData();
       formData.append("audio", file);
-      formData.append("language", "yiddish");
+      formData.append("input_language", inputLanguage);
+      formData.append("output_language", outputLanguage);
 
       const response = await fetch(EDGE_URL, {
         method: "POST",
@@ -52,18 +59,25 @@ export default function TranscriptionPage() {
       const json = await response.json();
 
       if (!response.ok || json.error) {
-        setError(json.error ?? "טראַנסקריפּציע איז דורכגעפֿאַלן. פּרובירט נאָכאַמאָל.");
+        setError(
+          json.error ?? "Transcription failed. Please try again."
+        );
         return;
       }
 
       const transcriptionText: string = json.transcription ?? "";
-      setResult({ text: transcriptionText, filename: file.name });
+      setResult({
+        text: transcriptionText,
+        filename: file.name,
+        outputLang: outputLanguage,
+      });
 
       await supabase.from("transcriptions").insert({
         filename: file.name,
         transcription: transcriptionText,
         file_size_bytes: file.size,
-        language: "yiddish",
+        language: inputLanguage,
+        output_language: outputLanguage,
         user_id: user?.id,
       });
 
@@ -72,7 +86,7 @@ export default function TranscriptionPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "נעטוואָרק פֿעלער. פּרובירט נאָכאַמאָל."
+          : "Network error. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -94,18 +108,29 @@ export default function TranscriptionPage() {
             className="text-2xl font-bold text-stone-900 mb-1 font-hebrew"
             dir="rtl"
           >
-            טראַנסקריבירט יידיש אַודיאָ
+            טראַנסקריבירט אַודיאָ
           </h2>
-          <p className="text-stone-500 text-sm mb-7 font-hebrew" dir="rtl">
-            לאָדט אַרויף אַ אַודיאָ טעקע אָדער נעמט אויף דירעקט אין בלעטערער.
-            דער מאָדעל וועט טראַנסקריבירן גערעדט יידיש.
+          <p className="text-stone-500 text-sm mb-6 font-hebrew" dir="rtl">
+            קלייבט אויס די שפּראַך פֿון אַודיאָ און די שפּראַך פֿון רעזולטאַט,
+            דאַן לאָדט אַרויף אָדער נעמט אויף.
           </p>
+
+          <div className="mb-6">
+            <LanguageSelector
+              inputLanguage={inputLanguage}
+              outputLanguage={outputLanguage}
+              onInputChange={setInputLanguage}
+              onOutputChange={setOutputLanguage}
+              disabled={isLoading}
+            />
+          </div>
+
           <AudioInput onTranscribe={handleTranscribe} isLoading={isLoading} />
         </div>
 
         {error && (
           <div
-            className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium font-hebrew animate-fade-in"
+            className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium animate-fade-in"
             dir="rtl"
           >
             {error}
@@ -123,6 +148,7 @@ export default function TranscriptionPage() {
             <TranscriptionResult
               text={result.text}
               filename={result.filename}
+              language={result.outputLang}
             />
           </div>
         )}
@@ -131,8 +157,7 @@ export default function TranscriptionPage() {
       </main>
 
       <footer className="text-center text-stone-400 text-xs py-8 font-sans">
-        ivrit-ai &middot; yi-whisper-large-v3-turbo &middot; יידיש שפּראַך
-        דערקענונג
+        yi-whisper &middot; Gemini &middot; Claude
       </footer>
     </div>
   );

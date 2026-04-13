@@ -11,6 +11,7 @@ export interface Transcription {
   filename: string;
   transcription: string;
   language: string;
+  output_language: string;
   duration_seconds: number | null;
   file_size_bytes: number | null;
   created_at: string;
