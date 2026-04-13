@@ -28,6 +28,18 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function resolveRunpodEndpointId(raw: string): string {
+  let id = raw.trim();
+
+  const v2Match = id.match(/https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/);
+  if (v2Match) return v2Match[1];
+
+  const subdomainMatch = id.match(/https?:\/\/([^.]+)\.api\.runpod\.ai/);
+  if (subdomainMatch) return subdomainMatch[1];
+
+  return id.replace(/[/\s]/g, "");
+}
+
 async function transcribeWithRunpod(
   audioBlob: Blob,
   filename: string,
@@ -41,94 +53,93 @@ async function transcribeWithRunpod(
     ? `.${filename.split(".").pop()}`
     : ".webm";
 
-  let endpointId = runpodEndpointId.trim();
+  const endpointId = resolveRunpodEndpointId(runpodEndpointId);
+  const runsyncUrl = `https://api.runpod.ai/v2/${endpointId}/runsync`;
 
-  const fullUrlMatch = endpointId.match(
-    /https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/
-  );
-  if (fullUrlMatch) {
-    endpointId = fullUrlMatch[1];
-  }
-
-  const oldFormatMatch = endpointId.match(
-    /https?:\/\/([^.]+)\.api\.runpod\.ai/
-  );
-  if (oldFormatMatch) {
-    endpointId = oldFormatMatch[1];
-  }
-
-  if (endpointId.includes("/")) {
-    endpointId = endpointId.replace(/\//g, "").trim();
-  }
-
-  const baseUrl = `https://api.runpod.ai/v2/${endpointId}`;
-  console.log(`RUNPOD_ENDPOINT_ID raw value: "${runpodEndpointId}"`);
+  console.log(`RUNPOD_ENDPOINT_ID raw: "${runpodEndpointId}"`);
   console.log(`Resolved endpoint ID: "${endpointId}"`);
-  console.log(`Full RunPod URL: ${baseUrl}/run`);
-  const runRes = await fetch(
-    `${baseUrl}/run`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${runpodApiKey}`,
-      },
-      body: JSON.stringify({
-        input: { audio_base64: base64Audio, extension: ext },
-      }),
-    }
+  console.log(`RunPod runsync URL: ${runsyncUrl}`);
+
+  const healthRes = await fetch(
+    `https://api.runpod.ai/v2/${endpointId}/health`,
+    { headers: { Authorization: `Bearer ${runpodApiKey}` } }
   );
+  const healthText = await healthRes.text();
+  console.log(`RunPod health check ${healthRes.status}: ${healthText}`);
+
+  const runRes = await fetch(runsyncUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${runpodApiKey}`,
+    },
+    body: JSON.stringify({
+      input: { audio_base64: base64Audio, extension: ext },
+    }),
+  });
+
+  const resText = await runRes.text();
+  console.log(`RunPod runsync response ${runRes.status}: ${resText}`);
 
   if (!runRes.ok) {
-    const errText = await runRes.text();
-    console.error(`RunPod run error ${runRes.status}: ${errText}`);
-    throw new Error(`RunPod run error ${runRes.status}: ${errText}`);
+    throw new Error(`RunPod error ${runRes.status}: ${resText}`);
   }
 
-  const runJson = await runRes.json();
-  console.log(`RunPod job submitted: ${JSON.stringify(runJson)}`);
-  const jobId = runJson.id;
-
-  if (!jobId) {
-    throw new Error("RunPod did not return a job ID");
+  let resJson;
+  try {
+    resJson = JSON.parse(resText);
+  } catch {
+    throw new Error(`RunPod returned invalid JSON: ${resText}`);
   }
 
-  const maxWait = 120_000;
-  const pollInterval = 2_000;
-  const start = Date.now();
+  if (resJson.status === "COMPLETED") {
+    if (resJson.output?.error) {
+      throw new Error(resJson.output.error);
+    }
+    return resJson.output?.transcription ?? "";
+  }
 
-  while (Date.now() - start < maxWait) {
-    await new Promise((r) => setTimeout(r, pollInterval));
+  if (resJson.status === "IN_QUEUE" || resJson.status === "IN_PROGRESS") {
+    const jobId = resJson.id;
+    if (!jobId) throw new Error("RunPod did not return a job ID");
 
-    const statusRes = await fetch(
-      `${baseUrl}/status/${jobId}`,
-      {
+    const baseUrl = `https://api.runpod.ai/v2/${endpointId}`;
+    const maxWait = 120_000;
+    const pollInterval = 3_000;
+    const start = Date.now();
+
+    while (Date.now() - start < maxWait) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+
+      const statusRes = await fetch(`${baseUrl}/status/${jobId}`, {
         headers: { Authorization: `Bearer ${runpodApiKey}` },
+      });
+
+      if (!statusRes.ok) {
+        const errText = await statusRes.text();
+        throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
       }
-    );
 
-    if (!statusRes.ok) {
-      const errText = await statusRes.text();
-      throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
-    }
+      const statusJson = await statusRes.json();
 
-    const statusJson = await statusRes.json();
-
-    if (statusJson.status === "COMPLETED") {
-      if (statusJson.output?.error) {
-        throw new Error(statusJson.output.error);
+      if (statusJson.status === "COMPLETED") {
+        if (statusJson.output?.error) throw new Error(statusJson.output.error);
+        return statusJson.output?.transcription ?? "";
       }
-      return statusJson.output?.transcription ?? "";
+
+      if (statusJson.status === "FAILED") {
+        throw new Error(statusJson.error ?? "RunPod job failed");
+      }
     }
 
-    if (statusJson.status === "FAILED") {
-      throw new Error(
-        statusJson.error ?? "RunPod job failed"
-      );
-    }
+    throw new Error("RunPod transcription timed out");
   }
 
-  throw new Error("RunPod transcription timed out");
+  if (resJson.status === "FAILED") {
+    throw new Error(resJson.error ?? "RunPod job failed");
+  }
+
+  throw new Error(`Unexpected RunPod response: ${resText}`);
 }
 
 async function transcribeWithGemini(
