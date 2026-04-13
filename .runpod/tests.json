@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Health check - basic invocation",
+      "input": {
+        "audio_base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
+        "extension": ".wav"
+      },
+      "timeout": 60,
+      "expected": {
+        "status": "COMPLETED"
+      }
+    },
+    {
+      "name": "Missing audio returns error",
+      "input": {},
+      "timeout": 30,
+      "expected": {
+        "status": "COMPLETED",
+        "output": {
+          "error": "No audio_base64 provided"
+        }
+      }
+    }
+  ]
+}

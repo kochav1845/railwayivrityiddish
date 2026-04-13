@@ -1,0 +1,23 @@
+{
+  "title": "Yi-Whisper Yiddish/Hebrew Transcription",
+  "description": "Yiddish and Hebrew speech-to-text transcription using ivrit-ai/yi-whisper-large-v3-turbo model. Accepts base64-encoded audio and returns transcribed text.",
+  "category": "audio",
+  "env": [
+    {
+      "key": "HF_TOKEN",
+      "description": "HuggingFace token for downloading gated models (optional)",
+      "required": false
+    }
+  ],
+  "build": {
+    "dockerfile": "runpod/Dockerfile",
+    "build_args": {
+      "HF_TOKEN": "${HF_TOKEN}"
+    }
+  },
+  "runtime": {
+    "gpu_types": ["NVIDIA RTX A4000", "NVIDIA RTX A5000", "NVIDIA RTX 4090"],
+    "gpu_count": 1,
+    "volume_mount_path": "/app"
+  }
+}

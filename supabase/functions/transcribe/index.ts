@@ -18,26 +18,83 @@ function stripNikud(text: string): string {
   return text.replace(/[\u0591-\u05C7]/g, "");
 }
 
-async function transcribeWithRailway(
+async function transcribeWithRunpod(
   audioBlob: Blob,
   filename: string,
-  railwayUrl: string
+  runpodEndpointId: string,
+  runpodApiKey: string
 ): Promise<string> {
-  const form = new FormData();
-  form.append("audio", audioBlob, filename);
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const base64Audio = btoa(
+    String.fromCharCode(...new Uint8Array(arrayBuffer))
+  );
 
-  const res = await fetch(`${railwayUrl}/transcribe`, {
-    method: "POST",
-    body: form,
-  });
+  const ext = filename.includes(".")
+    ? `.${filename.split(".").pop()}`
+    : ".webm";
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Railway error ${res.status}: ${errText}`);
+  const runRes = await fetch(
+    `https://api.runpod.ai/v2/${runpodEndpointId}/run`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${runpodApiKey}`,
+      },
+      body: JSON.stringify({
+        input: { audio_base64: base64Audio, extension: ext },
+      }),
+    }
+  );
+
+  if (!runRes.ok) {
+    const errText = await runRes.text();
+    throw new Error(`RunPod run error ${runRes.status}: ${errText}`);
   }
 
-  const json = await res.json();
-  return json.transcription ?? "";
+  const runJson = await runRes.json();
+  const jobId = runJson.id;
+
+  if (!jobId) {
+    throw new Error("RunPod did not return a job ID");
+  }
+
+  const maxWait = 120_000;
+  const pollInterval = 2_000;
+  const start = Date.now();
+
+  while (Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, pollInterval));
+
+    const statusRes = await fetch(
+      `https://api.runpod.ai/v2/${runpodEndpointId}/status/${jobId}`,
+      {
+        headers: { Authorization: `Bearer ${runpodApiKey}` },
+      }
+    );
+
+    if (!statusRes.ok) {
+      const errText = await statusRes.text();
+      throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
+    }
+
+    const statusJson = await statusRes.json();
+
+    if (statusJson.status === "COMPLETED") {
+      if (statusJson.output?.error) {
+        throw new Error(statusJson.output.error);
+      }
+      return statusJson.output?.transcription ?? "";
+    }
+
+    if (statusJson.status === "FAILED") {
+      throw new Error(
+        statusJson.error ?? "RunPod job failed"
+      );
+    }
+  }
+
+  throw new Error("RunPod transcription timed out");
 }
 
 async function transcribeWithGemini(
@@ -195,25 +252,20 @@ Deno.serve(async (req: Request) => {
     let rawTranscription = "";
 
     if (inputLanguage === "yiddish") {
-      let railwayUrl = Deno.env.get("RAILWAY_URL");
-      if (!railwayUrl) {
+      const runpodEndpointId = Deno.env.get("RUNPOD_ENDPOINT_ID");
+      const runpodApiKey = Deno.env.get("RUNPOD_API_KEY");
+      if (!runpodEndpointId || !runpodApiKey) {
         return jsonResponse(
-          { error: "Railway server URL not configured." },
+          { error: "RunPod configuration missing." },
           500
         );
       }
-      if (
-        !railwayUrl.startsWith("http://") &&
-        !railwayUrl.startsWith("https://")
-      ) {
-        railwayUrl = `https://${railwayUrl}`;
-      }
-      railwayUrl = railwayUrl.replace(/\/$/, "");
 
-      rawTranscription = await transcribeWithRailway(
+      rawTranscription = await transcribeWithRunpod(
         blob,
         filename,
-        railwayUrl
+        runpodEndpointId,
+        runpodApiKey
       );
 
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
