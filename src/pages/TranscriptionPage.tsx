@@ -112,14 +112,16 @@ export default function TranscriptionPage() {
             className="text-2xl font-bold text-stone-900 mb-1 font-hebrew"
             dir="rtl"
           />
-          <EditableText
-            contentKey="main_subtitle"
-            defaultValue="קלייבט אויס די שפּראַך פֿון אַודיאָ און די שפּראַך פֿון רעזולטאַט, דאַן לאָדט אַרויף אָדער נעמט אויף."
-            as="p"
+          <p
             className="text-stone-500 text-[2rem] leading-[1.5] mb-6 font-display"
             dir="rtl"
-            multiline
-          />
+          >
+            קלייבט אויס די שפּראַך פֿון{" "}
+            <span className="font-hebrew">audio</span>{" "}
+            און די שפּראַך פֿון{" "}
+            <span className="font-hebrew">result</span>{" "}
+            וואס איר ווילט, דאן קענט איר אפלאודן אדער נעמט אויף.
+          </p>
 
           <div className="mb-6">
             <LanguageSelector

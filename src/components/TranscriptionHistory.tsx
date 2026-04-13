@@ -138,7 +138,7 @@ export default function TranscriptionHistory({
                       {item.filename || "אָן נאָמען"}
                     </p>
                     <p
-                      className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap font-hebrew"
+                      className="text-stone-400 text-[1.1rem] mt-0.5 flex items-center gap-1.5 flex-wrap font-hebrew"
                       dir="ltr"
                     >
                       <span>{formatDate(item.created_at)}</span>

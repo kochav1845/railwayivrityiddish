@@ -28,7 +28,7 @@ export default function AppHeader() {
 
         <div className="flex items-center gap-3">
           <span
-            className="text-stone-400 text-xs font-hebrew hidden sm:block truncate max-w-[160px]"
+            className="text-stone-400 text-[1.1rem] font-hebrew hidden sm:block truncate max-w-[280px]"
             dir="ltr"
           >
             {user?.email}
