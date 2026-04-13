@@ -42,11 +42,14 @@ async function transcribeWithRunpod(
     : ".webm";
 
   let endpointId = runpodEndpointId;
-  const urlMatch = runpodEndpointId.match(/https?:\/\/([^.]+)\.api\.runpod\.ai/);
+  const urlMatch = runpodEndpointId.match(
+    /https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/
+  );
   if (urlMatch) {
     endpointId = urlMatch[1];
   }
-  const baseUrl = `https://${endpointId}.api.runpod.ai/v2/${endpointId}`;
+  const baseUrl = `https://api.runpod.ai/v2/${endpointId}`;
+  console.log(`RunPod URL: ${baseUrl}/run`);
   const runRes = await fetch(
     `${baseUrl}/run`,
     {
@@ -63,10 +66,12 @@ async function transcribeWithRunpod(
 
   if (!runRes.ok) {
     const errText = await runRes.text();
+    console.error(`RunPod run error ${runRes.status}: ${errText}`);
     throw new Error(`RunPod run error ${runRes.status}: ${errText}`);
   }
 
   const runJson = await runRes.json();
+  console.log(`RunPod job submitted: ${JSON.stringify(runJson)}`);
   const jobId = runJson.id;
 
   if (!jobId) {
