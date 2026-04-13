@@ -51,10 +51,10 @@ async function runpodTranscribe(
 
   console.log(`[RUNPOD] Endpoint: ${id}`);
   console.log(`[RUNPOD] Audio: ${buf.byteLength} bytes, ext: ${ext}`);
-  console.log(`[RUNPOD] POST /runsync...`);
+  console.log(`[RUNPOD] POST /run (async)...`);
 
   const t0 = Date.now();
-  const res = await fetch(`${base}/runsync`, {
+  const submitRes = await fetch(`${base}/run`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,40 +65,30 @@ async function runpodTranscribe(
     }),
   });
 
-  const text = await res.text();
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`[RUNPOD] Response ${res.status} in ${elapsed}s`);
+  const submitText = await submitRes.text();
+  const submitElapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[RUNPOD] Submit response ${submitRes.status} in ${submitElapsed}s`);
 
-  if (!res.ok) {
-    console.error(`[RUNPOD] HTTP error: ${text.substring(0, 500)}`);
-    throw new Error(`RunPod HTTP ${res.status}: ${text.substring(0, 200)}`);
+  if (!submitRes.ok) {
+    console.error(`[RUNPOD] Submit error: ${submitText.substring(0, 500)}`);
+    throw new Error(`RunPod HTTP ${submitRes.status}: ${submitText.substring(0, 200)}`);
   }
 
-  let data;
+  let submitData;
   try {
-    data = JSON.parse(text);
+    submitData = JSON.parse(submitText);
   } catch {
-    console.error(`[RUNPOD] Invalid JSON: ${text.substring(0, 300)}`);
+    console.error(`[RUNPOD] Invalid JSON: ${submitText.substring(0, 300)}`);
     throw new Error("RunPod returned invalid JSON");
   }
 
-  console.log(`[RUNPOD] Status: ${data.status}, id: ${data.id ?? "n/a"}`);
-
-  if (data.status === "COMPLETED") {
-    if (data.output?.error) throw new Error(data.output.error);
-    return data.output?.transcription ?? "";
-  }
-
-  if (data.status === "FAILED") {
-    throw new Error(data.error ?? "RunPod job failed");
-  }
-
-  const jobId = data.id;
+  const jobId = submitData.id;
   if (!jobId) throw new Error("RunPod returned no job ID");
 
-  console.log(`[RUNPOD] Job ${jobId} queued, polling...`);
-  const maxWait = 180_000;
-  const interval = 3_000;
+  console.log(`[RUNPOD] Job submitted: ${jobId}, status: ${submitData.status}`);
+
+  const maxWait = 300_000;
+  const interval = 2_000;
   const start = Date.now();
 
   while (Date.now() - start < maxWait) {
@@ -110,20 +100,30 @@ async function runpodTranscribe(
 
     if (!pollRes.ok) {
       const errText = await pollRes.text();
+      console.error(`[RUNPOD] Poll error ${pollRes.status}: ${errText.substring(0, 200)}`);
       throw new Error(`RunPod poll ${pollRes.status}: ${errText.substring(0, 200)}`);
     }
 
     const poll = await pollRes.json();
     const secs = ((Date.now() - t0) / 1000).toFixed(0);
-    console.log(`[RUNPOD] Poll: ${poll.status} (${secs}s)`);
+    console.log(`[RUNPOD] Poll ${jobId}: ${poll.status} (${secs}s total)`);
 
     if (poll.status === "COMPLETED") {
-      if (poll.output?.error) throw new Error(poll.output.error);
+      if (poll.output?.error) {
+        console.error(`[RUNPOD] Job error: ${poll.output.error}`);
+        throw new Error(poll.output.error);
+      }
+      console.log(`[RUNPOD] Job done, transcription: ${(poll.output?.transcription ?? "").length} chars`);
       return poll.output?.transcription ?? "";
     }
 
     if (poll.status === "FAILED") {
+      console.error(`[RUNPOD] Job failed: ${JSON.stringify(poll.error ?? poll.output)}`);
       throw new Error(poll.error ?? "RunPod job failed");
+    }
+
+    if (poll.status === "TIMED_OUT" || poll.status === "CANCELLED") {
+      throw new Error(`RunPod job ${poll.status}`);
     }
   }
 

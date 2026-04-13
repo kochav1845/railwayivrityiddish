@@ -18,6 +18,6 @@
   "runtime": {
     "gpu_types": ["NVIDIA RTX A4000", "NVIDIA RTX A5000", "NVIDIA RTX 4090"],
     "gpu_count": 1,
-    "volume_mount_path": "/app"
+    "volume_mount_path": "/runpod-volume"
   }
 }
