@@ -58,15 +58,9 @@ async function transcribeWithRunpod(
 
   console.log(`RUNPOD_ENDPOINT_ID raw: "${runpodEndpointId}"`);
   console.log(`Resolved endpoint ID: "${endpointId}"`);
-  console.log(`RunPod run URL: ${baseUrl}/run`);
+  console.log(`RunPod runsync URL: ${baseUrl}/runsync`);
 
-  const healthRes = await fetch(`${baseUrl}/health`, {
-    headers: { Authorization: `Bearer ${runpodApiKey}` },
-  });
-  const healthText = await healthRes.text();
-  console.log(`RunPod health ${healthRes.status}: ${healthText}`);
-
-  const runRes = await fetch(`${baseUrl}/run`, {
+  const runRes = await fetch(`${baseUrl}/runsync`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -78,7 +72,7 @@ async function transcribeWithRunpod(
   });
 
   const runText = await runRes.text();
-  console.log(`RunPod run response ${runRes.status}: ${runText}`);
+  console.log(`RunPod runsync response ${runRes.status}: ${runText}`);
 
   if (!runRes.ok) {
     throw new Error(`RunPod error ${runRes.status}: ${runText}`);
@@ -91,39 +85,48 @@ async function transcribeWithRunpod(
     throw new Error(`RunPod returned invalid JSON: ${runText}`);
   }
 
-  const jobId = runJson.id;
-  if (!jobId) throw new Error("RunPod did not return a job ID");
-
-  const maxWait = 120_000;
-  const pollInterval = 3_000;
-  const start = Date.now();
-
-  while (Date.now() - start < maxWait) {
-    await new Promise((r) => setTimeout(r, pollInterval));
-
-    const statusRes = await fetch(`${baseUrl}/status/${jobId}`, {
-      headers: { Authorization: `Bearer ${runpodApiKey}` },
-    });
-
-    if (!statusRes.ok) {
-      const errText = await statusRes.text();
-      throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
-    }
-
-    const statusJson = await statusRes.json();
-    console.log(`RunPod job ${jobId} status: ${statusJson.status}`);
-
-    if (statusJson.status === "COMPLETED") {
-      if (statusJson.output?.error) throw new Error(statusJson.output.error);
-      return statusJson.output?.transcription ?? "";
-    }
-
-    if (statusJson.status === "FAILED") {
-      throw new Error(statusJson.error ?? "RunPod job failed");
-    }
+  if (runJson.status === "FAILED") {
+    throw new Error(runJson.error ?? "RunPod job failed");
   }
 
-  throw new Error("RunPod transcription timed out");
+  if (runJson.status === "IN_QUEUE" || runJson.status === "IN_PROGRESS") {
+    const jobId = runJson.id;
+    if (!jobId) throw new Error("RunPod did not return a job ID");
+
+    const maxWait = 120_000;
+    const pollInterval = 3_000;
+    const start = Date.now();
+
+    while (Date.now() - start < maxWait) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+
+      const statusRes = await fetch(`${baseUrl}/status/${jobId}`, {
+        headers: { Authorization: `Bearer ${runpodApiKey}` },
+      });
+
+      if (!statusRes.ok) {
+        const errText = await statusRes.text();
+        throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
+      }
+
+      const statusJson = await statusRes.json();
+      console.log(`RunPod job ${jobId} status: ${statusJson.status}`);
+
+      if (statusJson.status === "COMPLETED") {
+        if (statusJson.output?.error) throw new Error(statusJson.output.error);
+        return statusJson.output?.transcription ?? "";
+      }
+
+      if (statusJson.status === "FAILED") {
+        throw new Error(statusJson.error ?? "RunPod job failed");
+      }
+    }
+
+    throw new Error("RunPod transcription timed out");
+  }
+
+  if (runJson.output?.error) throw new Error(runJson.output.error);
+  return runJson.output?.transcription ?? "";
 }
 
 async function transcribeWithGemini(
