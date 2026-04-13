@@ -5,7 +5,7 @@ import tempfile
 import base64
 import time
 import traceback
-import sys
+import sys 
 import runpod
 import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
