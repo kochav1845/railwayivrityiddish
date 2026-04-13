@@ -87,7 +87,7 @@ async function runpodTranscribe(
 
   console.log(`[RUNPOD] Job submitted: ${jobId}, status: ${submitData.status}`);
 
-  const maxWait = 300_000;
+  const maxWait = 120_000;
   const interval = 2_000;
   const start = Date.now();
 

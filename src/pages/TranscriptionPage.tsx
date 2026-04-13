@@ -45,6 +45,9 @@ export default function TranscriptionPage() {
     setError(null);
     setResult(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180_000);
+
     try {
       const formData = new FormData();
       formData.append("audio", file);
@@ -55,7 +58,10 @@ export default function TranscriptionPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${ANON_KEY}` },
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const json = await response.json();
 
@@ -87,11 +93,16 @@ export default function TranscriptionPage() {
 
       await loadHistory();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Network error. Please try again."
-      );
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("הטראַנסקריפּציע האָט צו לאַנג גענומען. ביטע פּרוּווט נאָכאַמאָל.");
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Network error. Please try again."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
