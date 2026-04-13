@@ -5,22 +5,40 @@ import base64
 import runpod
 import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from huggingface_hub import snapshot_download
 
 MODEL_ID = "ivrit-ai/yi-whisper-large-v3-turbo"
+VOLUME_MODEL_DIR = "/runpod-volume/model"
+
+def get_model_path():
+    if os.path.isdir(VOLUME_MODEL_DIR) and os.listdir(VOLUME_MODEL_DIR):
+        print(f"Loading model from network volume: {VOLUME_MODEL_DIR}")
+        return VOLUME_MODEL_DIR
+
+    print(f"Network volume empty or missing. Downloading {MODEL_ID} to {VOLUME_MODEL_DIR}...")
+    os.makedirs(VOLUME_MODEL_DIR, exist_ok=True)
+    snapshot_download(
+        repo_id=MODEL_ID,
+        local_dir=VOLUME_MODEL_DIR,
+        local_dir_use_symlinks=False,
+    )
+    print("Download complete.")
+    return VOLUME_MODEL_DIR
+
+model_path = get_model_path()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    MODEL_ID,
+    model_path,
     torch_dtype=torch_dtype,
     low_cpu_mem_usage=True,
     use_safetensors=True,
-    local_files_only=True,
 )
 model.to(device)
 
-processor = AutoProcessor.from_pretrained(MODEL_ID, local_files_only=True)
+processor = AutoProcessor.from_pretrained(model_path)
 
 pipe = pipeline(
     "automatic-speech-recognition",
