@@ -7,7 +7,7 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
+function jsonRes(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -18,127 +18,130 @@ function stripNikud(text: string): string {
   return text.replace(/[\u0591-\u05C7]/g, "");
 }
 
-function uint8ToBase64(bytes: Uint8Array): string {
-  const chunkSize = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+function toBase64(bytes: Uint8Array): string {
+  const chunk = 8192;
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
-  return btoa(binary);
+  return btoa(bin);
 }
 
-function resolveRunpodEndpointId(raw: string): string {
-  let id = raw.trim();
-
-  const v2Match = id.match(/https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/);
-  if (v2Match) return v2Match[1];
-
-  const subdomainMatch = id.match(/https?:\/\/([^.]+)\.api\.runpod\.ai/);
-  if (subdomainMatch) return subdomainMatch[1];
-
-  return id.replace(/[/\s]/g, "");
+function resolveEndpointId(raw: string): string {
+  const trimmed = raw.trim();
+  const v2 = trimmed.match(/https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/);
+  if (v2) return v2[1];
+  const sub = trimmed.match(/https?:\/\/([^.]+)\.api\.runpod\.ai/);
+  if (sub) return sub[1];
+  return trimmed.replace(/[/\s]/g, "");
 }
 
-async function transcribeWithRunpod(
+async function runpodTranscribe(
   audioBlob: Blob,
   filename: string,
-  runpodEndpointId: string,
-  runpodApiKey: string
+  endpointRaw: string,
+  apiKey: string
 ): Promise<string> {
-  const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64Audio = uint8ToBase64(new Uint8Array(arrayBuffer));
+  const buf = await audioBlob.arrayBuffer();
+  const b64 = toBase64(new Uint8Array(buf));
+  const ext = filename.includes(".") ? `.${filename.split(".").pop()}` : ".webm";
 
-  const ext = filename.includes(".")
-    ? `.${filename.split(".").pop()}`
-    : ".webm";
+  const id = resolveEndpointId(endpointRaw);
+  const base = `https://api.runpod.ai/v2/${id}`;
 
-  const endpointId = resolveRunpodEndpointId(runpodEndpointId);
-  const baseUrl = `https://api.runpod.ai/v2/${endpointId}`;
+  console.log(`[RUNPOD] Endpoint: ${id}`);
+  console.log(`[RUNPOD] Audio: ${buf.byteLength} bytes, ext: ${ext}`);
+  console.log(`[RUNPOD] POST /runsync...`);
 
-  console.log(`RUNPOD_ENDPOINT_ID raw: "${runpodEndpointId}"`);
-  console.log(`Resolved endpoint ID: "${endpointId}"`);
-  console.log(`RunPod runsync URL: ${baseUrl}/runsync`);
-
-  const runRes = await fetch(`${baseUrl}/runsync`, {
+  const t0 = Date.now();
+  const res = await fetch(`${base}/runsync`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${runpodApiKey}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      input: { audio_base64: base64Audio, extension: ext },
+      input: { audio_base64: b64, extension: ext },
     }),
   });
 
-  const runText = await runRes.text();
-  console.log(`RunPod runsync response ${runRes.status}: ${runText}`);
+  const text = await res.text();
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[RUNPOD] Response ${res.status} in ${elapsed}s`);
 
-  if (!runRes.ok) {
-    throw new Error(`RunPod error ${runRes.status}: ${runText}`);
+  if (!res.ok) {
+    console.error(`[RUNPOD] HTTP error: ${text.substring(0, 500)}`);
+    throw new Error(`RunPod HTTP ${res.status}: ${text.substring(0, 200)}`);
   }
 
-  let runJson;
+  let data;
   try {
-    runJson = JSON.parse(runText);
+    data = JSON.parse(text);
   } catch {
-    throw new Error(`RunPod returned invalid JSON: ${runText}`);
+    console.error(`[RUNPOD] Invalid JSON: ${text.substring(0, 300)}`);
+    throw new Error("RunPod returned invalid JSON");
   }
 
-  if (runJson.status === "FAILED") {
-    throw new Error(runJson.error ?? "RunPod job failed");
+  console.log(`[RUNPOD] Status: ${data.status}, id: ${data.id ?? "n/a"}`);
+
+  if (data.status === "COMPLETED") {
+    if (data.output?.error) throw new Error(data.output.error);
+    return data.output?.transcription ?? "";
   }
 
-  if (runJson.status === "IN_QUEUE" || runJson.status === "IN_PROGRESS") {
-    const jobId = runJson.id;
-    if (!jobId) throw new Error("RunPod did not return a job ID");
+  if (data.status === "FAILED") {
+    throw new Error(data.error ?? "RunPod job failed");
+  }
 
-    const maxWait = 120_000;
-    const pollInterval = 3_000;
-    const start = Date.now();
+  const jobId = data.id;
+  if (!jobId) throw new Error("RunPod returned no job ID");
 
-    while (Date.now() - start < maxWait) {
-      await new Promise((r) => setTimeout(r, pollInterval));
+  console.log(`[RUNPOD] Job ${jobId} queued, polling...`);
+  const maxWait = 180_000;
+  const interval = 3_000;
+  const start = Date.now();
 
-      const statusRes = await fetch(`${baseUrl}/status/${jobId}`, {
-        headers: { Authorization: `Bearer ${runpodApiKey}` },
-      });
+  while (Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, interval));
 
-      if (!statusRes.ok) {
-        const errText = await statusRes.text();
-        throw new Error(`RunPod status error ${statusRes.status}: ${errText}`);
-      }
+    const pollRes = await fetch(`${base}/status/${jobId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
 
-      const statusJson = await statusRes.json();
-      console.log(`RunPod job ${jobId} status: ${statusJson.status}`);
-
-      if (statusJson.status === "COMPLETED") {
-        if (statusJson.output?.error) throw new Error(statusJson.output.error);
-        return statusJson.output?.transcription ?? "";
-      }
-
-      if (statusJson.status === "FAILED") {
-        throw new Error(statusJson.error ?? "RunPod job failed");
-      }
+    if (!pollRes.ok) {
+      const errText = await pollRes.text();
+      throw new Error(`RunPod poll ${pollRes.status}: ${errText.substring(0, 200)}`);
     }
 
-    throw new Error("RunPod transcription timed out");
+    const poll = await pollRes.json();
+    const secs = ((Date.now() - t0) / 1000).toFixed(0);
+    console.log(`[RUNPOD] Poll: ${poll.status} (${secs}s)`);
+
+    if (poll.status === "COMPLETED") {
+      if (poll.output?.error) throw new Error(poll.output.error);
+      return poll.output?.transcription ?? "";
+    }
+
+    if (poll.status === "FAILED") {
+      throw new Error(poll.error ?? "RunPod job failed");
+    }
   }
 
-  if (runJson.output?.error) throw new Error(runJson.output.error);
-  return runJson.output?.transcription ?? "";
+  throw new Error(`RunPod timed out after ${maxWait / 1000}s`);
 }
 
-async function transcribeWithGemini(
+async function geminiTranscribe(
   audioBlob: Blob,
   language: string,
   apiKey: string
 ): Promise<string> {
-  const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64Audio = uint8ToBase64(new Uint8Array(arrayBuffer));
-
-  const mimeType = audioBlob.type || "audio/webm";
+  const buf = await audioBlob.arrayBuffer();
+  const b64 = toBase64(new Uint8Array(buf));
+  const mime = audioBlob.type || "audio/webm";
   const langLabel = language === "english" ? "English" : "Hebrew";
+
+  console.log(`[GEMINI] Transcribing ${language} (${buf.byteLength} bytes)`);
+  const t0 = Date.now();
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -149,42 +152,38 @@ async function transcribeWithGemini(
         contents: [
           {
             parts: [
+              { inline_data: { mime_type: mime, data: b64 } },
               {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Audio,
-                },
-              },
-              {
-                text: `Transcribe this audio. The spoken language is ${langLabel}. Return ONLY the transcribed text, nothing else. No labels, no prefixes, no explanations. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
+                text: `Transcribe this audio. The spoken language is ${langLabel}. Return ONLY the transcribed text, nothing else. No labels, no prefixes, no explanations. Do NOT include any nikud (Hebrew vowel diacritics/points).`,
               },
             ],
           },
         ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-        },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
       }),
     }
   );
 
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Gemini error ${res.status}: ${errText}`);
+    console.error(`[GEMINI] Error ${res.status} (${elapsed}s): ${errText.substring(0, 300)}`);
+    throw new Error(`Gemini error ${res.status}`);
   }
 
-  const json = await res.json();
-  const text =
-    json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  return text.trim();
+  const result = await res.json();
+  const out = result?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  console.log(`[GEMINI] Done in ${elapsed}s, ${out.length} chars`);
+  return out.trim();
 }
 
 async function callClaude(
   prompt: string,
-  systemPrompt: string,
+  system: string,
   apiKey: string
 ): Promise<string> {
+  const t0 = Date.now();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -195,65 +194,37 @@ async function callClaude(
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 8192,
-      system: systemPrompt,
+      system,
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Claude error ${res.status}: ${errText}`);
+    console.error(`[CLAUDE] Error ${res.status} (${elapsed}s): ${errText.substring(0, 300)}`);
+    throw new Error(`Claude error ${res.status}`);
   }
 
-  const json = await res.json();
-  return json?.content?.[0]?.text?.trim() ?? "";
+  const result = await res.json();
+  const out = result?.content?.[0]?.text?.trim() ?? "";
+  console.log(`[CLAUDE] Done in ${elapsed}s, ${out.length} chars`);
+  return out;
 }
 
-async function fixYiddishGrammar(
-  text: string,
-  apiKey: string
-): Promise<string> {
-  if (!text.trim()) return text;
-
-  return callClaude(
-    text,
-    `You are an expert Yiddish language editor. Your task is to correct grammar, spelling, and punctuation errors in the provided Yiddish text. Keep the meaning intact. Return ONLY the corrected Yiddish text. Do not add explanations, notes, or any other content. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
-    apiKey
-  );
+function grammarSystem(lang: string): string {
+  const name = lang === "yiddish" ? "Yiddish" : "Hebrew";
+  return `You are an expert ${name} language editor. Correct grammar, spelling, and punctuation errors. Keep the meaning intact. Return ONLY the corrected text. No explanations. Do NOT include any nikud.`;
 }
 
-async function fixHebrewGrammar(
-  text: string,
-  apiKey: string
-): Promise<string> {
-  if (!text.trim()) return text;
-
-  return callClaude(
-    text,
-    `You are an expert Hebrew language editor. Your task is to correct grammar, spelling, and punctuation errors in the provided Hebrew text. Keep the meaning intact. Return ONLY the corrected Hebrew text. Do not add explanations, notes, or any other content. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
-    apiKey
-  );
-}
-
-async function translateText(
-  text: string,
-  fromLang: string,
-  toLang: string,
-  apiKey: string
-): Promise<string> {
-  if (!text.trim()) return text;
-
-  const langNames: Record<string, string> = {
+function translateSystem(from: string, to: string): string {
+  const names: Record<string, string> = {
     yiddish: "Yiddish",
     english: "English",
     hebrew: "Hebrew",
   };
-
-  return callClaude(
-    text,
-    `You are a professional translator. Translate the following text from ${langNames[fromLang]} to ${langNames[toLang]}. Return ONLY the translated text. Do not add explanations, notes, labels, or any other content. Maintain the tone and meaning of the original text. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
-    apiKey
-  );
+  return `You are a professional translator. Translate from ${names[from]} to ${names[to]}. Return ONLY the translated text. No explanations, no labels. Maintain tone and meaning. Do NOT include any nikud.`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -261,151 +232,104 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const reqStart = Date.now();
-  console.log(`[EDGE] === New transcription request at ${new Date().toISOString()} ===`);
+  const t0 = Date.now();
+  console.log("=".repeat(60));
+  console.log(`[EDGE] Request at ${new Date().toISOString()}`);
 
   try {
-    const incomingForm = await req.formData();
-    const audioFile = incomingForm.get("audio") as File | null;
-    const inputLanguage =
-      (incomingForm.get("input_language") as string) || "yiddish";
-    const outputLanguage =
-      (incomingForm.get("output_language") as string) || "yiddish";
+    const form = await req.formData();
+    const audioFile = form.get("audio") as File | null;
+    const inputLang = (form.get("input_language") as string) || "yiddish";
+    const outputLang = (form.get("output_language") as string) || "yiddish";
 
-    console.log(`[EDGE] Input language: ${inputLanguage}, Output language: ${outputLanguage}`);
+    console.log(`[EDGE] ${inputLang} -> ${outputLang}`);
 
     if (!audioFile) {
-      console.log("[EDGE] ERROR: No audio file in form data");
-      return jsonResponse({ error: "No audio file provided" }, 400);
+      console.log("[EDGE] No audio file");
+      return jsonRes({ error: "No audio file provided" }, 400);
     }
 
-    console.log(`[EDGE] Audio file: ${audioFile.name}, size: ${audioFile.size} bytes, type: ${audioFile.type}`);
+    console.log(`[EDGE] File: ${audioFile.name}, ${audioFile.size} bytes, ${audioFile.type}`);
 
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const blob = new Blob([arrayBuffer], {
+    const blob = new Blob([await audioFile.arrayBuffer()], {
       type: audioFile.type || "audio/webm",
     });
-    const filename = audioFile.name || "recording.webm";
+    const fname = audioFile.name || "recording.webm";
 
-    let rawTranscription = "";
+    let rawText = "";
 
-    if (inputLanguage === "yiddish") {
-      const runpodEndpointId = Deno.env.get("RUNPOD_ENDPOINT_ID");
-      const runpodApiKey = Deno.env.get("RUNPOD_API_KEY");
-      if (!runpodEndpointId || !runpodApiKey) {
-        console.log("[EDGE] ERROR: RunPod config missing");
-        return jsonResponse(
-          { error: "RunPod configuration missing." },
-          500
-        );
+    if (inputLang === "yiddish") {
+      const rpEndpoint = Deno.env.get("RUNPOD_ENDPOINT_ID");
+      const rpKey = Deno.env.get("RUNPOD_API_KEY");
+      if (!rpEndpoint || !rpKey) {
+        console.error("[EDGE] Missing RunPod config");
+        return jsonRes({ error: "RunPod not configured" }, 500);
       }
 
-      console.log("[EDGE] Starting RunPod transcription...");
-      const rpStart = Date.now();
-      rawTranscription = await transcribeWithRunpod(
-        blob,
-        filename,
-        runpodEndpointId,
-        runpodApiKey
-      );
-      console.log(`[EDGE] RunPod done in ${((Date.now() - rpStart) / 1000).toFixed(1)}s, text length: ${rawTranscription.length}`);
-      console.log(`[EDGE] RunPod raw text: ${rawTranscription.substring(0, 200)}`);
+      rawText = await runpodTranscribe(blob, fname, rpEndpoint, rpKey);
+      console.log(`[EDGE] RunPod: ${rawText.length} chars`);
 
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (anthropicKey && rawTranscription.trim()) {
-        console.log("[EDGE] Fixing Yiddish grammar via Claude...");
-        const gramStart = Date.now();
-        rawTranscription = await fixYiddishGrammar(
-          rawTranscription,
-          anthropicKey
-        );
-        console.log(`[EDGE] Grammar fix done in ${((Date.now() - gramStart) / 1000).toFixed(1)}s`);
+      const aKey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (aKey && rawText.trim()) {
+        console.log("[EDGE] Grammar fix (Yiddish)...");
+        rawText = await callClaude(rawText, grammarSystem("yiddish"), aKey);
       }
     } else {
-      const geminiKey = Deno.env.get("GEMINI_API_KEY");
-      if (!geminiKey) {
-        console.log("[EDGE] ERROR: Gemini key missing");
-        return jsonResponse(
-          { error: "Gemini API key not configured." },
-          500
-        );
+      const gKey = Deno.env.get("GEMINI_API_KEY");
+      if (!gKey) {
+        console.error("[EDGE] Missing Gemini key");
+        return jsonRes({ error: "Gemini not configured" }, 500);
       }
 
-      console.log(`[EDGE] Starting Gemini transcription for ${inputLanguage}...`);
-      const gemStart = Date.now();
-      rawTranscription = await transcribeWithGemini(
-        blob,
-        inputLanguage,
-        geminiKey
-      );
-      console.log(`[EDGE] Gemini done in ${((Date.now() - gemStart) / 1000).toFixed(1)}s, text length: ${rawTranscription.length}`);
-      console.log(`[EDGE] Gemini raw text: ${rawTranscription.substring(0, 200)}`);
+      rawText = await geminiTranscribe(blob, inputLang, gKey);
+      console.log(`[EDGE] Gemini: ${rawText.length} chars`);
 
-      if (inputLanguage === "hebrew") {
-        const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-        if (anthropicKey && rawTranscription.trim()) {
-          console.log("[EDGE] Fixing Hebrew grammar via Claude...");
-          const gramStart = Date.now();
-          rawTranscription = await fixHebrewGrammar(
-            rawTranscription,
-            anthropicKey
-          );
-          console.log(`[EDGE] Grammar fix done in ${((Date.now() - gramStart) / 1000).toFixed(1)}s`);
+      if (inputLang === "hebrew") {
+        const aKey = Deno.env.get("ANTHROPIC_API_KEY");
+        if (aKey && rawText.trim()) {
+          console.log("[EDGE] Grammar fix (Hebrew)...");
+          rawText = await callClaude(rawText, grammarSystem("hebrew"), aKey);
         }
       }
     }
 
-    let finalText = rawTranscription;
+    let finalText = rawText;
 
-    if (inputLanguage !== outputLanguage && finalText.trim()) {
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!anthropicKey) {
-        console.log("[EDGE] ERROR: Anthropic key missing for translation");
-        return jsonResponse(
-          { error: "Anthropic API key not configured for translation." },
-          500
-        );
+    if (inputLang !== outputLang && finalText.trim()) {
+      const aKey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!aKey) {
+        console.error("[EDGE] Missing Anthropic key for translation");
+        return jsonRes({ error: "Translation not configured" }, 500);
       }
 
-      console.log(`[EDGE] Translating ${inputLanguage} -> ${outputLanguage}...`);
-      const transStart = Date.now();
-      finalText = await translateText(
-        finalText,
-        inputLanguage,
-        outputLanguage,
-        anthropicKey
-      );
-      console.log(`[EDGE] Translation done in ${((Date.now() - transStart) / 1000).toFixed(1)}s`);
+      console.log(`[EDGE] Translating ${inputLang} -> ${outputLang}...`);
+      finalText = await callClaude(finalText, translateSystem(inputLang, outputLang), aKey);
 
-      if (outputLanguage === "yiddish") {
-        finalText = await fixYiddishGrammar(finalText, anthropicKey);
-      } else if (outputLanguage === "hebrew") {
-        finalText = await fixHebrewGrammar(finalText, anthropicKey);
+      if (outputLang === "yiddish" || outputLang === "hebrew") {
+        console.log(`[EDGE] Post-translate grammar (${outputLang})...`);
+        finalText = await callClaude(finalText, grammarSystem(outputLang), aKey);
       }
     }
 
     finalText = stripNikud(finalText);
-    rawTranscription = stripNikud(rawTranscription);
+    rawText = stripNikud(rawText);
 
-    const totalTime = ((Date.now() - reqStart) / 1000).toFixed(1);
-    console.log(`[EDGE] === Request completed in ${totalTime}s ===`);
-    console.log(`[EDGE] Final text (${finalText.length} chars): ${finalText.substring(0, 200)}`);
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+    console.log(`[EDGE] Complete in ${secs}s | ${finalText.length} chars`);
+    console.log("=".repeat(60));
 
-    return jsonResponse({
+    return jsonRes({
       transcription: finalText,
-      raw_transcription: rawTranscription,
-      input_language: inputLanguage,
-      output_language: outputLanguage,
+      raw_transcription: rawText,
+      input_language: inputLang,
+      output_language: outputLang,
     });
   } catch (err) {
-    const totalTime = ((Date.now() - reqStart) / 1000).toFixed(1);
-    console.error(`[EDGE] === FAILED after ${totalTime}s ===`);
-    console.error(`[EDGE] Error:`, err);
-    return jsonResponse(
-      {
-        error:
-          err instanceof Error ? err.message : "Unexpected error",
-      },
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+    console.error(`[EDGE] FAILED ${secs}s:`, err);
+    console.error("=".repeat(60));
+    return jsonRes(
+      { error: err instanceof Error ? err.message : "Unexpected error" },
       500
     );
   }

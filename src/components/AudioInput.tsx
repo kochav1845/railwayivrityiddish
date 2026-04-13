@@ -7,6 +7,8 @@ interface AudioInputProps {
   isLoading: boolean;
 }
 
+const VALID_EXTENSIONS = /\.(wav|mp3|ogg|flac|webm|m4a|mp4)$/i;
+
 export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -20,13 +22,8 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
   const handleFile = useCallback(
     (file: File) => {
       setError(null);
-      if (
-        !file.type.startsWith("audio/") &&
-        !file.name.match(/\.(wav|mp3|ogg|flac|webm|m4a|mp4)$/i)
-      ) {
-        setError(
-          "ביטע לאָדט אַרויף אַ גילטיקע אַודיאָ טעקע (WAV, MP3, OGG, FLAC, M4A, WEBM)"
-        );
+      if (!file.type.startsWith("audio/") && !VALID_EXTENSIONS.test(file.name)) {
+        setError("ביטע לאָדט אַרויף אַ גילטיקע אַודיאָ טעקע (WAV, MP3, OGG, FLAC, M4A, WEBM)");
         return;
       }
       onTranscribe(file);
@@ -126,11 +123,7 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
           className="hidden"
         />
         <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4 group-hover:bg-amber-200 transition-colors duration-200">
-          <Upload
-            className="text-amber-600"
-            size={24}
-            strokeWidth={1.5}
-          />
+          <Upload className="text-amber-600" size={24} strokeWidth={1.5} />
         </div>
         <EditableText
           contentKey="upload_title"
@@ -212,9 +205,7 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
       </div>
 
       {error && (
-        <div
-          className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm font-hebrew"
-        >
+        <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm font-hebrew">
           <AlertCircle size={16} className="shrink-0" />
           {error}
         </div>

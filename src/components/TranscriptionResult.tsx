@@ -31,8 +31,6 @@ export default function TranscriptionResult({
     ? yiddishFont === "tree"
       ? "font-hebrew"
       : "font-display text-[3em] leading-[1.6]"
-    : isRtl
-    ? "font-hebrew"
     : "font-hebrew";
 
   return (
@@ -52,7 +50,7 @@ export default function TranscriptionResult({
                 setYiddishFont((f) => (f === "tree" ? "reponzel" : "tree"))
               }
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-200 hover:bg-stone-200 text-stone-600 font-hebrew"
-              title="באַטן פֿאָנט / Switch font"
+              title="Switch font"
             >
               <Type size={14} />
               <span className="text-xs">

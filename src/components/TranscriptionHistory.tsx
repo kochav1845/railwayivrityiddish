@@ -113,8 +113,6 @@ export default function TranscriptionHistory({
             ? currentFont === "tree"
               ? "font-hebrew"
               : "font-display text-[3em] leading-[1.6]"
-            : isRtl
-            ? "font-hebrew"
             : "font-hebrew";
 
           return (
@@ -192,15 +190,9 @@ export default function TranscriptionHistory({
                     </span>
                   )}
                   {expanded === item.id ? (
-                    <ChevronUp
-                      size={16}
-                      className="text-stone-400 shrink-0"
-                    />
+                    <ChevronUp size={16} className="text-stone-400 shrink-0" />
                   ) : (
-                    <ChevronDown
-                      size={16}
-                      className="text-stone-400 shrink-0"
-                    />
+                    <ChevronDown size={16} className="text-stone-400 shrink-0" />
                   )}
                 </div>
               </button>
