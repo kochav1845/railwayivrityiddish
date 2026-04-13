@@ -14,6 +14,10 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function stripNikud(text: string): string {
+  return text.replace(/[\u0591-\u05C7]/g, "");
+}
+
 async function transcribeWithRailway(
   audioBlob: Blob,
   filename: string,
@@ -65,7 +69,7 @@ async function transcribeWithGemini(
                 },
               },
               {
-                text: `Transcribe this audio. The spoken language is ${langLabel}. Return ONLY the transcribed text, nothing else. No labels, no prefixes, no explanations.`,
+                text: `Transcribe this audio. The spoken language is ${langLabel}. Return ONLY the transcribed text, nothing else. No labels, no prefixes, no explanations. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
               },
             ],
           },
@@ -126,7 +130,20 @@ async function fixYiddishGrammar(
 
   return callClaude(
     text,
-    `You are an expert Yiddish language editor. Your task is to correct grammar, spelling, and punctuation errors in the provided Yiddish text. Keep the meaning intact. Return ONLY the corrected Yiddish text. Do not add explanations, notes, or any other content.`,
+    `You are an expert Yiddish language editor. Your task is to correct grammar, spelling, and punctuation errors in the provided Yiddish text. Keep the meaning intact. Return ONLY the corrected Yiddish text. Do not add explanations, notes, or any other content. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
+    apiKey
+  );
+}
+
+async function fixHebrewGrammar(
+  text: string,
+  apiKey: string
+): Promise<string> {
+  if (!text.trim()) return text;
+
+  return callClaude(
+    text,
+    `You are an expert Hebrew language editor. Your task is to correct grammar, spelling, and punctuation errors in the provided Hebrew text. Keep the meaning intact. Return ONLY the corrected Hebrew text. Do not add explanations, notes, or any other content. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
     apiKey
   );
 }
@@ -147,7 +164,7 @@ async function translateText(
 
   return callClaude(
     text,
-    `You are a professional translator. Translate the following text from ${langNames[fromLang]} to ${langNames[toLang]}. Return ONLY the translated text. Do not add explanations, notes, labels, or any other content. Maintain the tone and meaning of the original text.`,
+    `You are a professional translator. Translate the following text from ${langNames[fromLang]} to ${langNames[toLang]}. Return ONLY the translated text. Do not add explanations, notes, labels, or any other content. Maintain the tone and meaning of the original text. IMPORTANT: Do NOT include any nikud (Hebrew vowel diacritics/points) in the output.`,
     apiKey
   );
 }
@@ -220,6 +237,16 @@ Deno.serve(async (req: Request) => {
         inputLanguage,
         geminiKey
       );
+
+      if (inputLanguage === "hebrew") {
+        const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+        if (anthropicKey && rawTranscription.trim()) {
+          rawTranscription = await fixHebrewGrammar(
+            rawTranscription,
+            anthropicKey
+          );
+        }
+      }
     }
 
     let finalText = rawTranscription;
@@ -242,8 +269,13 @@ Deno.serve(async (req: Request) => {
 
       if (outputLanguage === "yiddish") {
         finalText = await fixYiddishGrammar(finalText, anthropicKey);
+      } else if (outputLanguage === "hebrew") {
+        finalText = await fixHebrewGrammar(finalText, anthropicKey);
       }
     }
+
+    finalText = stripNikud(finalText);
+    rawTranscription = stripNikud(rawTranscription);
 
     return jsonResponse({
       transcription: finalText,
