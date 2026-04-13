@@ -122,5 +122,12 @@ def handler(job):
             os.unlink(wav_path)
 
 
+print("--- RunPod Worker Starting ---")
+try:
+    load_model()
+    print("--- Model pre-loaded successfully. Worker ready. ---")
+except Exception as e:
+    print(f"--- FATAL: Failed to pre-load model: {e} ---")
+
 runpod.serverless.start({"handler": handler})
  
