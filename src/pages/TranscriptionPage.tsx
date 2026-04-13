@@ -51,15 +51,27 @@ export default function TranscriptionPage() {
       formData.append("input_language", inputLanguage);
       formData.append("output_language", outputLanguage);
 
+      console.log("[TRANSCRIBE] Starting request...");
+      console.log(`[TRANSCRIBE] File: ${file.name}, size: ${file.size} bytes, type: ${file.type}`);
+      console.log(`[TRANSCRIBE] Input lang: ${inputLanguage}, Output lang: ${outputLanguage}`);
+      console.log(`[TRANSCRIBE] Edge URL: ${EDGE_URL}`);
+
+      const startTime = performance.now();
+
       const response = await fetch(EDGE_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${ANON_KEY}` },
         body: formData,
       });
 
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      console.log(`[TRANSCRIBE] Response received in ${elapsed}s - Status: ${response.status}`);
+
       const json = await response.json();
+      console.log("[TRANSCRIBE] Response body:", JSON.stringify(json, null, 2));
 
       if (!response.ok || json.error) {
+        console.error(`[TRANSCRIBE] Error: ${json.error}`);
         setError(
           json.error ?? "Transcription failed. Please try again."
         );
@@ -67,13 +79,16 @@ export default function TranscriptionPage() {
       }
 
       const transcriptionText: string = json.transcription ?? "";
+      console.log(`[TRANSCRIBE] Success! Text length: ${transcriptionText.length} chars`);
+      console.log(`[TRANSCRIBE] Text preview: ${transcriptionText.substring(0, 200)}`);
+
       setResult({
         text: transcriptionText,
         filename: file.name,
         outputLang: outputLanguage,
       });
 
-      await supabase.from("transcriptions").insert({
+      const { error: dbError } = await supabase.from("transcriptions").insert({
         filename: file.name,
         transcription: transcriptionText,
         file_size_bytes: file.size,
@@ -82,8 +97,15 @@ export default function TranscriptionPage() {
         user_id: user?.id,
       });
 
+      if (dbError) {
+        console.error("[TRANSCRIBE] DB insert error:", dbError);
+      } else {
+        console.log("[TRANSCRIBE] Saved to database");
+      }
+
       await loadHistory();
     } catch (err) {
+      console.error("[TRANSCRIBE] Network/unexpected error:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -91,6 +113,7 @@ export default function TranscriptionPage() {
       );
     } finally {
       setIsLoading(false);
+      console.log("[TRANSCRIBE] Done");
     }
   };
 

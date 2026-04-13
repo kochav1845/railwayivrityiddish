@@ -261,6 +261,9 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  const reqStart = Date.now();
+  console.log(`[EDGE] === New transcription request at ${new Date().toISOString()} ===`);
+
   try {
     const incomingForm = await req.formData();
     const audioFile = incomingForm.get("audio") as File | null;
@@ -269,9 +272,14 @@ Deno.serve(async (req: Request) => {
     const outputLanguage =
       (incomingForm.get("output_language") as string) || "yiddish";
 
+    console.log(`[EDGE] Input language: ${inputLanguage}, Output language: ${outputLanguage}`);
+
     if (!audioFile) {
+      console.log("[EDGE] ERROR: No audio file in form data");
       return jsonResponse({ error: "No audio file provided" }, 400);
     }
+
+    console.log(`[EDGE] Audio file: ${audioFile.name}, size: ${audioFile.size} bytes, type: ${audioFile.type}`);
 
     const arrayBuffer = await audioFile.arrayBuffer();
     const blob = new Blob([arrayBuffer], {
@@ -285,48 +293,64 @@ Deno.serve(async (req: Request) => {
       const runpodEndpointId = Deno.env.get("RUNPOD_ENDPOINT_ID");
       const runpodApiKey = Deno.env.get("RUNPOD_API_KEY");
       if (!runpodEndpointId || !runpodApiKey) {
+        console.log("[EDGE] ERROR: RunPod config missing");
         return jsonResponse(
           { error: "RunPod configuration missing." },
           500
         );
       }
 
+      console.log("[EDGE] Starting RunPod transcription...");
+      const rpStart = Date.now();
       rawTranscription = await transcribeWithRunpod(
         blob,
         filename,
         runpodEndpointId,
         runpodApiKey
       );
+      console.log(`[EDGE] RunPod done in ${((Date.now() - rpStart) / 1000).toFixed(1)}s, text length: ${rawTranscription.length}`);
+      console.log(`[EDGE] RunPod raw text: ${rawTranscription.substring(0, 200)}`);
 
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
       if (anthropicKey && rawTranscription.trim()) {
+        console.log("[EDGE] Fixing Yiddish grammar via Claude...");
+        const gramStart = Date.now();
         rawTranscription = await fixYiddishGrammar(
           rawTranscription,
           anthropicKey
         );
+        console.log(`[EDGE] Grammar fix done in ${((Date.now() - gramStart) / 1000).toFixed(1)}s`);
       }
     } else {
       const geminiKey = Deno.env.get("GEMINI_API_KEY");
       if (!geminiKey) {
+        console.log("[EDGE] ERROR: Gemini key missing");
         return jsonResponse(
           { error: "Gemini API key not configured." },
           500
         );
       }
 
+      console.log(`[EDGE] Starting Gemini transcription for ${inputLanguage}...`);
+      const gemStart = Date.now();
       rawTranscription = await transcribeWithGemini(
         blob,
         inputLanguage,
         geminiKey
       );
+      console.log(`[EDGE] Gemini done in ${((Date.now() - gemStart) / 1000).toFixed(1)}s, text length: ${rawTranscription.length}`);
+      console.log(`[EDGE] Gemini raw text: ${rawTranscription.substring(0, 200)}`);
 
       if (inputLanguage === "hebrew") {
         const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
         if (anthropicKey && rawTranscription.trim()) {
+          console.log("[EDGE] Fixing Hebrew grammar via Claude...");
+          const gramStart = Date.now();
           rawTranscription = await fixHebrewGrammar(
             rawTranscription,
             anthropicKey
           );
+          console.log(`[EDGE] Grammar fix done in ${((Date.now() - gramStart) / 1000).toFixed(1)}s`);
         }
       }
     }
@@ -336,18 +360,22 @@ Deno.serve(async (req: Request) => {
     if (inputLanguage !== outputLanguage && finalText.trim()) {
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
       if (!anthropicKey) {
+        console.log("[EDGE] ERROR: Anthropic key missing for translation");
         return jsonResponse(
           { error: "Anthropic API key not configured for translation." },
           500
         );
       }
 
+      console.log(`[EDGE] Translating ${inputLanguage} -> ${outputLanguage}...`);
+      const transStart = Date.now();
       finalText = await translateText(
         finalText,
         inputLanguage,
         outputLanguage,
         anthropicKey
       );
+      console.log(`[EDGE] Translation done in ${((Date.now() - transStart) / 1000).toFixed(1)}s`);
 
       if (outputLanguage === "yiddish") {
         finalText = await fixYiddishGrammar(finalText, anthropicKey);
@@ -359,6 +387,10 @@ Deno.serve(async (req: Request) => {
     finalText = stripNikud(finalText);
     rawTranscription = stripNikud(rawTranscription);
 
+    const totalTime = ((Date.now() - reqStart) / 1000).toFixed(1);
+    console.log(`[EDGE] === Request completed in ${totalTime}s ===`);
+    console.log(`[EDGE] Final text (${finalText.length} chars): ${finalText.substring(0, 200)}`);
+
     return jsonResponse({
       transcription: finalText,
       raw_transcription: rawTranscription,
@@ -366,6 +398,9 @@ Deno.serve(async (req: Request) => {
       output_language: outputLanguage,
     });
   } catch (err) {
+    const totalTime = ((Date.now() - reqStart) / 1000).toFixed(1);
+    console.error(`[EDGE] === FAILED after ${totalTime}s ===`);
+    console.error(`[EDGE] Error:`, err);
     return jsonResponse(
       {
         error:
