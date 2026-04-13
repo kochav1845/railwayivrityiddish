@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { Mic2, Loader2, Mail, Lock, UserPlus, LogIn } from "lucide-react";
+import { Mic2, Loader2, Mail, Lock, UserPlus, LogIn, ArrowLeft } from "lucide-react";
 
-export default function LoginPage() {
+interface LoginPageProps {
+  onBack?: () => void;
+}
+
+export default function LoginPage({ onBack }: LoginPageProps) {
   const { signIn, signUp } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
@@ -74,7 +78,16 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-md">
-        <div className="text-center mb-8">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="absolute -top-2 left-0 flex items-center gap-1.5 text-stone-500 hover:text-stone-800 transition-colors text-sm font-medium"
+          >
+            <ArrowLeft size={16} />
+            <span>Back</span>
+          </button>
+        )}
+        <div className="text-center mb-8 mt-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 shadow-lg shadow-amber-200/50 mb-5">
             <Mic2 size={28} className="text-white" strokeWidth={1.8} />
           </div>
