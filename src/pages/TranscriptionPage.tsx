@@ -6,6 +6,7 @@ import AppHeader from "../components/AppHeader";
 import LanguageSelector, {
   type Language,
 } from "../components/LanguageSelector";
+import EditableText from "../components/EditableText";
 import { supabase, type Transcription } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -104,16 +105,21 @@ export default function TranscriptionPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/80 shadow-lg shadow-stone-200/20 p-8 mb-8">
-          <h2
+          <EditableText
+            contentKey="main_heading"
+            defaultValue="טראַנסקריבירט אַודיאָ"
+            as="h2"
             className="text-2xl font-bold text-stone-900 mb-1 font-hebrew"
             dir="rtl"
-          >
-            טראַנסקריבירט אַודיאָ
-          </h2>
-          <p className="text-stone-500 text-sm mb-6 font-hebrew" dir="rtl">
-            קלייבט אויס די שפּראַך פֿון אַודיאָ און די שפּראַך פֿון רעזולטאַט,
-            דאַן לאָדט אַרויף אָדער נעמט אויף.
-          </p>
+          />
+          <EditableText
+            contentKey="main_subtitle"
+            defaultValue="קלייבט אויס די שפּראַך פֿון אַודיאָ און די שפּראַך פֿון רעזולטאַט, דאַן לאָדט אַרויף אָדער נעמט אויף."
+            as="p"
+            className="text-stone-500 text-sm mb-6 font-hebrew"
+            dir="rtl"
+            multiline
+          />
 
           <div className="mb-6">
             <LanguageSelector
@@ -130,7 +136,7 @@ export default function TranscriptionPage() {
 
         {error && (
           <div
-            className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium animate-fade-in"
+            className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 mb-6 text-sm font-medium animate-fade-in font-hebrew"
             dir="rtl"
           >
             {error}
@@ -139,12 +145,13 @@ export default function TranscriptionPage() {
 
         {result && (
           <div className="mb-8">
-            <h3
+            <EditableText
+              contentKey="result_heading"
+              defaultValue="טראַנסקריפּציע"
+              as="h3"
               className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3 font-hebrew"
               dir="rtl"
-            >
-              טראַנסקריפּציע
-            </h3>
+            />
             <TranscriptionResult
               text={result.text}
               filename={result.filename}
@@ -156,7 +163,7 @@ export default function TranscriptionPage() {
         <TranscriptionHistory items={history} onDelete={handleDelete} />
       </main>
 
-      <footer className="text-center text-stone-400 text-xs py-8 font-sans">
+      <footer className="text-center text-stone-400 text-xs py-8 font-display">
         yi-whisper &middot; Gemini &middot; Claude
       </footer>
     </div>

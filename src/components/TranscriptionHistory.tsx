@@ -6,8 +6,10 @@ import {
   FileAudio,
   Trash2,
   ArrowLeft,
+  Type,
 } from "lucide-react";
 import type { Transcription } from "../lib/supabase";
+import EditableText from "./EditableText";
 
 interface TranscriptionHistoryProps {
   items: Transcription[];
@@ -56,6 +58,7 @@ export default function TranscriptionHistory({
   onDelete,
 }: TranscriptionHistoryProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [fontOverrides, setFontOverrides] = useState<Record<string, "doar" | "reponzel">>({});
 
   if (items.length === 0) {
     return (
@@ -63,26 +66,56 @@ export default function TranscriptionHistory({
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-stone-100 mb-4">
           <Clock size={24} className="text-stone-300" />
         </div>
-        <p className="text-stone-400 font-medium font-hebrew text-lg">
-          נאָך נישטאָ קיין אויפֿנאַמעס
-        </p>
-        <p className="text-stone-300 text-sm mt-1 font-hebrew">
-          אייערע טראַנסקריפּציעס וועלן דאָ אויפֿטרעטן
-        </p>
+        <EditableText
+          contentKey="history_empty_title"
+          defaultValue="נאָך נישטאָ קיין אויפֿנאַמעס"
+          as="p"
+          className="text-stone-400 font-medium font-hebrew text-lg"
+          dir="rtl"
+        />
+        <EditableText
+          contentKey="history_empty_subtitle"
+          defaultValue="אייערע טראַנסקריפּציעס וועלן דאָ אויפֿטרעטן"
+          as="p"
+          className="text-stone-300 text-sm mt-1 font-hebrew"
+          dir="rtl"
+        />
       </div>
     );
   }
+
+  const toggleFont = (id: string) => {
+    setFontOverrides((prev) => ({
+      ...prev,
+      [id]: prev[id] === "reponzel" ? "doar" : "reponzel",
+    }));
+  };
 
   return (
     <div dir="rtl">
       <h2 className="text-lg font-bold text-stone-800 mb-4 flex items-center gap-2 font-hebrew">
         <Clock size={18} className="text-amber-600" />
-        פֿריערדיקע אויפֿנאַמעס
+        <EditableText
+          contentKey="history_heading"
+          defaultValue="פֿריערדיקע אויפֿנאַמעס"
+          as="span"
+          className="font-hebrew"
+          dir="rtl"
+        />
       </h2>
       <div className="space-y-2">
         {items.map((item, i) => {
           const outLang = item.output_language || item.language;
           const isRtl = RTL_LANGUAGES.has(outLang);
+          const isYiddish = outLang === "yiddish";
+          const currentFont = fontOverrides[item.id] || "doar";
+          const fontClass = isYiddish
+            ? currentFont === "doar"
+              ? "font-hebrew"
+              : "font-display"
+            : isRtl
+            ? "font-hebrew"
+            : "font-display";
 
           return (
             <div
@@ -105,7 +138,7 @@ export default function TranscriptionHistory({
                       {item.filename || "אָן נאָמען"}
                     </p>
                     <p
-                      className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap font-sans"
+                      className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap font-display"
                       dir="ltr"
                     >
                       <span>{formatDate(item.created_at)}</span>
@@ -172,20 +205,33 @@ export default function TranscriptionHistory({
                 </div>
               </button>
               {expanded === item.id && (
-                <div
-                  dir={isRtl ? "rtl" : "ltr"}
-                  lang={
-                    outLang === "yiddish"
-                      ? "yi"
-                      : outLang === "hebrew"
-                      ? "he"
-                      : "en"
-                  }
-                  className={`px-5 pb-5 pt-2 text-stone-700 text-base leading-[1.8] border-t border-stone-100 animate-fade-in ${
-                    isRtl ? "font-hebrew" : "font-sans"
-                  }`}
-                >
-                  {item.transcription}
+                <div className="border-t border-stone-100 animate-fade-in">
+                  {isYiddish && (
+                    <div className="flex justify-end px-5 pt-3">
+                      <button
+                        onClick={() => toggleFont(item.id)}
+                        className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors duration-200 hover:bg-stone-200 text-stone-500"
+                      >
+                        <Type size={12} />
+                        <span>
+                          {currentFont === "doar" ? "דואר" : "רעפּאָנצל"}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                  <div
+                    dir={isRtl ? "rtl" : "ltr"}
+                    lang={
+                      outLang === "yiddish"
+                        ? "yi"
+                        : outLang === "hebrew"
+                        ? "he"
+                        : "en"
+                    }
+                    className={`px-5 pb-5 pt-2 text-stone-700 text-base leading-[1.8] ${fontClass}`}
+                  >
+                    {item.transcription}
+                  </div>
                 </div>
               )}
             </div>

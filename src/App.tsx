@@ -1,4 +1,5 @@
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { SiteContentProvider } from "./contexts/SiteContentContext";
 import LoginPage from "./pages/LoginPage";
 import TranscriptionPage from "./pages/TranscriptionPage";
 import { Loader2 } from "lucide-react";
@@ -14,7 +15,13 @@ function AppContent() {
     );
   }
 
-  return user ? <TranscriptionPage /> : <LoginPage />;
+  if (!user) return <LoginPage />;
+
+  return (
+    <SiteContentProvider>
+      <TranscriptionPage />
+    </SiteContentProvider>
+  );
 }
 
 export default function App() {

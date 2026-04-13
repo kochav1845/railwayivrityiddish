@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { Upload, Mic, Square, Loader2, AlertCircle } from "lucide-react";
+import EditableText from "./EditableText";
 
 interface AudioInputProps {
   onTranscribe: (file: File) => void;
@@ -131,19 +132,31 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
             strokeWidth={1.5}
           />
         </div>
-        <p className="text-stone-800 font-semibold text-lg font-hebrew">
-          שלעפּט אַהער אַ אַודיאָ טעקע
-        </p>
-        <p className="text-stone-400 text-sm mt-1.5 font-hebrew">
-          אָדער דריקט צו בלעטערן &mdash; WAV, MP3, OGG, FLAC, M4A, WEBM
-        </p>
+        <EditableText
+          contentKey="upload_title"
+          defaultValue="שלעפּט אַהער אַ אַודיאָ טעקע"
+          as="p"
+          className="text-stone-800 font-semibold text-lg font-hebrew"
+          dir="rtl"
+        />
+        <EditableText
+          contentKey="upload_subtitle"
+          defaultValue="אָדער דריקט צו בלעטערן — WAV, MP3, OGG, FLAC, M4A, WEBM"
+          as="p"
+          className="text-stone-400 text-sm mt-1.5 font-hebrew"
+          dir="rtl"
+        />
       </div>
 
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-stone-200" />
-        <span className="text-stone-400 text-sm font-medium font-hebrew">
-          אָדער נעמט אויף
-        </span>
+        <EditableText
+          contentKey="or_record"
+          defaultValue="אָדער נעמט אויף"
+          as="span"
+          className="text-stone-400 text-sm font-medium font-hebrew"
+          dir="rtl"
+        />
         <div className="flex-1 h-px bg-stone-200" />
       </div>
 
@@ -155,7 +168,13 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
             className="flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-l from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-all duration-200 shadow-md shadow-amber-200/40 hover:shadow-lg hover:shadow-amber-200/50"
           >
             <Mic size={18} />
-            <span className="font-hebrew">אָנהייבן אויפֿנעמען</span>
+            <EditableText
+              contentKey="start_recording"
+              defaultValue="אָנהייבן אויפֿנעמען"
+              as="span"
+              className="font-hebrew"
+              dir="rtl"
+            />
           </button>
         ) : (
           <div className="flex items-center gap-4">
@@ -166,8 +185,14 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
                 className="relative flex items-center gap-2.5 px-7 py-3.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors duration-150 shadow-md"
               >
                 <Square size={16} />
-                <span className="font-sans">{formatTime(recordingTime)}</span>
-                <span className="font-hebrew">&mdash; אָפּשטעלן</span>
+                <span className="font-display">{formatTime(recordingTime)}</span>
+                <EditableText
+                  contentKey="stop_recording"
+                  defaultValue="— אָפּשטעלן"
+                  as="span"
+                  className="font-hebrew"
+                  dir="rtl"
+                />
               </button>
             </div>
           </div>
@@ -175,7 +200,13 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
         {isLoading && (
           <div className="flex items-center gap-2 text-amber-700 font-medium">
             <Loader2 size={20} className="animate-spin" />
-            <span className="font-hebrew">טראַנסקריבירט...</span>
+            <EditableText
+              contentKey="transcribing_label"
+              defaultValue="טראַנסקריבירט..."
+              as="span"
+              className="font-hebrew"
+              dir="rtl"
+            />
           </div>
         )}
       </div>

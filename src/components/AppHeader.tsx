@@ -1,5 +1,6 @@
 import { Mic2, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import EditableText from "./EditableText";
 
 export default function AppHeader() {
   const { user, signOut } = useAuth();
@@ -12,10 +13,14 @@ export default function AppHeader() {
             <Mic2 size={20} className="text-white" strokeWidth={1.8} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-stone-900 leading-tight font-hebrew">
-              יידיש טראַנסקריבער
-            </h1>
-            <p className="text-stone-400 text-[11px] font-sans" dir="ltr">
+            <EditableText
+              contentKey="header_title"
+              defaultValue="יידיש טראַנסקריבער"
+              as="h1"
+              className="text-lg font-bold text-stone-900 leading-tight font-hebrew"
+              dir="rtl"
+            />
+            <p className="text-stone-400 text-[11px] font-display" dir="ltr">
               ivrit-ai / yi-whisper-large-v3-turbo
             </p>
           </div>
@@ -23,7 +28,7 @@ export default function AppHeader() {
 
         <div className="flex items-center gap-3">
           <span
-            className="text-stone-400 text-xs font-sans hidden sm:block truncate max-w-[160px]"
+            className="text-stone-400 text-xs font-display hidden sm:block truncate max-w-[160px]"
             dir="ltr"
           >
             {user?.email}
@@ -35,7 +40,13 @@ export default function AppHeader() {
             title="אַרויסלאָגן"
           >
             <LogOut size={15} />
-            <span className="hidden sm:inline font-hebrew">אַרויסלאָגן</span>
+            <EditableText
+              contentKey="header_logout"
+              defaultValue="אַרויסלאָגן"
+              as="span"
+              className="hidden sm:inline font-hebrew"
+              dir="rtl"
+            />
           </button>
         </div>
       </div>

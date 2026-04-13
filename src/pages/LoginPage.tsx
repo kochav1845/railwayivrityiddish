@@ -105,7 +105,7 @@ export default function LoginPage() {
               dir="rtl"
             >
               <LogIn size={15} />
-              אַריינלאָגן
+              <span className="font-hebrew">אַריינלאָגן</span>
             </button>
             <button
               onClick={() => {
@@ -121,7 +121,7 @@ export default function LoginPage() {
               dir="rtl"
             >
               <UserPlus size={15} />
-              רעגיסטרירן
+              <span className="font-hebrew">רעגיסטרירן</span>
             </button>
           </div>
 
@@ -160,7 +160,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-sans text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
                   placeholder="email@example.com"
                   dir="ltr"
                 />
@@ -183,7 +183,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-sans text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
                   placeholder="******"
                   dir="ltr"
                 />
@@ -207,7 +207,7 @@ export default function LoginPage() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-sans text-sm"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
                     placeholder="******"
                     dir="ltr"
                   />
@@ -238,7 +238,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-stone-400 text-xs mt-6 font-sans">
+        <p className="text-center text-stone-400 text-xs mt-6 font-display">
           ivrit-ai &middot; yi-whisper-large-v3-turbo
         </p>
       </div>

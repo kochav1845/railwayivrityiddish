@@ -4,8 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        hebrew: ['"Frank Ruhl Libre"', 'serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        hebrew: ['"FbDoarSerif"', 'serif'],
+        display: ['"LiaReponzel"', 'sans-serif'],
+        sans: ['"LiaReponzel"', 'Inter', 'system-ui', 'sans-serif'],
       },
     },
   },
