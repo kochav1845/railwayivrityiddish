@@ -41,15 +41,30 @@ async function transcribeWithRunpod(
     ? `.${filename.split(".").pop()}`
     : ".webm";
 
-  let endpointId = runpodEndpointId;
-  const urlMatch = runpodEndpointId.match(
+  let endpointId = runpodEndpointId.trim();
+
+  const fullUrlMatch = endpointId.match(
     /https?:\/\/api\.runpod\.ai\/v2\/([^/]+)/
   );
-  if (urlMatch) {
-    endpointId = urlMatch[1];
+  if (fullUrlMatch) {
+    endpointId = fullUrlMatch[1];
   }
+
+  const oldFormatMatch = endpointId.match(
+    /https?:\/\/([^.]+)\.api\.runpod\.ai/
+  );
+  if (oldFormatMatch) {
+    endpointId = oldFormatMatch[1];
+  }
+
+  if (endpointId.includes("/")) {
+    endpointId = endpointId.replace(/\//g, "").trim();
+  }
+
   const baseUrl = `https://api.runpod.ai/v2/${endpointId}`;
-  console.log(`RunPod URL: ${baseUrl}/run`);
+  console.log(`RUNPOD_ENDPOINT_ID raw value: "${runpodEndpointId}"`);
+  console.log(`Resolved endpoint ID: "${endpointId}"`);
+  console.log(`Full RunPod URL: ${baseUrl}/run`);
   const runRes = await fetch(
     `${baseUrl}/run`,
     {
