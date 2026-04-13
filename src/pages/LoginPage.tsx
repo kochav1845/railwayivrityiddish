@@ -82,7 +82,7 @@ export default function LoginPage() {
             className="text-3xl font-bold text-stone-900 mb-1 font-hebrew"
             dir="rtl"
           >
-            יידיש טראַנסקריבער
+            יידיש טרענסילעישן - איבערטייטשער
           </h1>
           <p className="text-stone-500 text-sm font-hebrew" dir="rtl">
             שפּראַך-צו-טעקסט מיט קינסטלעכע אינטעליגענץ
@@ -160,7 +160,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-hebrew text-sm"
                   placeholder="email@example.com"
                   dir="ltr"
                 />
@@ -183,7 +183,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-hebrew text-sm"
                   placeholder="******"
                   dir="ltr"
                 />
@@ -207,7 +207,7 @@ export default function LoginPage() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-display text-sm"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 transition-all duration-200 font-hebrew text-sm"
                     placeholder="******"
                     dir="ltr"
                   />
@@ -238,7 +238,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-stone-400 text-xs mt-6 font-display">
+        <p className="text-center text-stone-400 text-xs mt-6 font-hebrew">
           ivrit-ai &middot; yi-whisper-large-v3-turbo
         </p>
       </div>

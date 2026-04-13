@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        hebrew: ['"FbDoarSerif"', 'serif'],
+        hebrew: ['"FbTreeOfKnowledge"', 'serif'],
         display: ['"LiaReponzel"', 'sans-serif'],
         sans: ['"LiaReponzel"', 'Inter', 'system-ui', 'sans-serif'],
       },

@@ -15,12 +15,12 @@ export default function AppHeader() {
           <div>
             <EditableText
               contentKey="header_title"
-              defaultValue="יידיש טראַנסקריבער"
+              defaultValue="יידיש טרענסילעישן - איבערטייטשער"
               as="h1"
               className="text-lg font-bold text-stone-900 leading-tight font-hebrew"
               dir="rtl"
             />
-            <p className="text-stone-400 text-[11px] font-display" dir="ltr">
+            <p className="text-stone-400 text-[11px] font-hebrew" dir="ltr">
               ivrit-ai / yi-whisper-large-v3-turbo
             </p>
           </div>
@@ -28,7 +28,7 @@ export default function AppHeader() {
 
         <div className="flex items-center gap-3">
           <span
-            className="text-stone-400 text-xs font-display hidden sm:block truncate max-w-[160px]"
+            className="text-stone-400 text-xs font-hebrew hidden sm:block truncate max-w-[160px]"
             dir="ltr"
           >
             {user?.email}

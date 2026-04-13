@@ -116,7 +116,7 @@ export default function TranscriptionPage() {
             contentKey="main_subtitle"
             defaultValue="קלייבט אויס די שפּראַך פֿון אַודיאָ און די שפּראַך פֿון רעזולטאַט, דאַן לאָדט אַרויף אָדער נעמט אויף."
             as="p"
-            className="text-stone-500 text-sm mb-6 font-hebrew"
+            className="text-stone-500 text-[2rem] leading-[1.5] mb-6 font-display"
             dir="rtl"
             multiline
           />
@@ -163,7 +163,7 @@ export default function TranscriptionPage() {
         <TranscriptionHistory items={history} onDelete={handleDelete} />
       </main>
 
-      <footer className="text-center text-stone-400 text-xs py-8 font-display">
+      <footer className="text-center text-stone-400 text-xs py-8 font-hebrew">
         yi-whisper &middot; Gemini &middot; Claude
       </footer>
     </div>

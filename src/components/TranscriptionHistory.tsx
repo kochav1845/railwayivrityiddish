@@ -58,7 +58,7 @@ export default function TranscriptionHistory({
   onDelete,
 }: TranscriptionHistoryProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [fontOverrides, setFontOverrides] = useState<Record<string, "doar" | "reponzel">>({});
+  const [fontOverrides, setFontOverrides] = useState<Record<string, "tree" | "reponzel">>({});
 
   if (items.length === 0) {
     return (
@@ -70,14 +70,14 @@ export default function TranscriptionHistory({
           contentKey="history_empty_title"
           defaultValue="נאָך נישטאָ קיין אויפֿנאַמעס"
           as="p"
-          className="text-stone-400 font-medium font-hebrew text-lg"
+          className="text-stone-400 font-medium font-display text-[2rem]"
           dir="rtl"
         />
         <EditableText
           contentKey="history_empty_subtitle"
           defaultValue="אייערע טראַנסקריפּציעס וועלן דאָ אויפֿטרעטן"
           as="p"
-          className="text-stone-300 text-sm mt-1 font-hebrew"
+          className="text-stone-300 text-[1.5rem] mt-1 font-display"
           dir="rtl"
         />
       </div>
@@ -87,7 +87,7 @@ export default function TranscriptionHistory({
   const toggleFont = (id: string) => {
     setFontOverrides((prev) => ({
       ...prev,
-      [id]: prev[id] === "reponzel" ? "doar" : "reponzel",
+      [id]: prev[id] === "reponzel" ? "tree" : "reponzel",
     }));
   };
 
@@ -108,14 +108,14 @@ export default function TranscriptionHistory({
           const outLang = item.output_language || item.language;
           const isRtl = RTL_LANGUAGES.has(outLang);
           const isYiddish = outLang === "yiddish";
-          const currentFont = fontOverrides[item.id] || "doar";
+          const currentFont = fontOverrides[item.id] || "tree";
           const fontClass = isYiddish
-            ? currentFont === "doar"
+            ? currentFont === "tree"
               ? "font-hebrew"
-              : "font-display"
+              : "font-display text-[3em] leading-[1.6]"
             : isRtl
             ? "font-hebrew"
-            : "font-display";
+            : "font-hebrew";
 
           return (
             <div
@@ -138,7 +138,7 @@ export default function TranscriptionHistory({
                       {item.filename || "אָן נאָמען"}
                     </p>
                     <p
-                      className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap font-display"
+                      className="text-stone-400 text-xs mt-0.5 flex items-center gap-1.5 flex-wrap font-hebrew"
                       dir="ltr"
                     >
                       <span>{formatDate(item.created_at)}</span>
@@ -210,11 +210,11 @@ export default function TranscriptionHistory({
                     <div className="flex justify-end px-5 pt-3">
                       <button
                         onClick={() => toggleFont(item.id)}
-                        className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors duration-200 hover:bg-stone-200 text-stone-500"
+                        className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors duration-200 hover:bg-stone-200 text-stone-500 font-hebrew"
                       >
                         <Type size={12} />
                         <span>
-                          {currentFont === "doar" ? "דואר" : "רעפּאָנצל"}
+                          {currentFont === "tree" ? "עץ הדעת" : "רעפּאָנצל"}
                         </span>
                       </button>
                     </div>
@@ -228,7 +228,7 @@ export default function TranscriptionHistory({
                         ? "he"
                         : "en"
                     }
-                    className={`px-5 pb-5 pt-2 text-stone-700 text-base leading-[1.8] ${fontClass}`}
+                    className={`px-5 pb-5 pt-2 text-stone-700 ${fontClass}`}
                   >
                     {item.transcription}
                   </div>

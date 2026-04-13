@@ -37,7 +37,7 @@ export default function LanguageSelector({
           contentKey="input_lang_label"
           defaultValue="שפּראַך פֿון אַודיאָ"
           as="span"
-          className="block text-xs font-semibold text-stone-500 mb-1.5 font-hebrew"
+          className="block text-[1.2rem] font-semibold text-stone-500 mb-1.5 font-display"
           dir="rtl"
         />
         <div className="relative">
@@ -68,7 +68,7 @@ export default function LanguageSelector({
           contentKey="output_lang_label"
           defaultValue="שפּראַך פֿון רעזולטאַט"
           as="span"
-          className="block text-xs font-semibold text-stone-500 mb-1.5 font-hebrew"
+          className="block text-[1.2rem] font-semibold text-stone-500 mb-1.5 font-display"
           dir="rtl"
         />
         <div className="relative">

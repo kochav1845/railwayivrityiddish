@@ -134,7 +134,7 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
         </div>
         <EditableText
           contentKey="upload_title"
-          defaultValue="שלעפּט אַהער אַ אַודיאָ טעקע"
+          defaultValue="שלעפּט אַהער אַ audio file"
           as="p"
           className="text-stone-800 font-semibold text-lg font-hebrew"
           dir="rtl"
@@ -154,7 +154,7 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
           contentKey="or_record"
           defaultValue="אָדער נעמט אויף"
           as="span"
-          className="text-stone-400 text-sm font-medium font-hebrew"
+          className="text-stone-400 text-[1.5rem] font-medium font-display"
           dir="rtl"
         />
         <div className="flex-1 h-px bg-stone-200" />
@@ -185,7 +185,7 @@ export default function AudioInput({ onTranscribe, isLoading }: AudioInputProps)
                 className="relative flex items-center gap-2.5 px-7 py-3.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-colors duration-150 shadow-md"
               >
                 <Square size={16} />
-                <span className="font-display">{formatTime(recordingTime)}</span>
+                <span className="font-hebrew">{formatTime(recordingTime)}</span>
                 <EditableText
                   contentKey="stop_recording"
                   defaultValue="— אָפּשטעלן"
