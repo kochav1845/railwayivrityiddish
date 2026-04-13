@@ -33,8 +33,9 @@ async function transcribeWithRunpod(
     ? `.${filename.split(".").pop()}`
     : ".webm";
 
+  const baseUrl = `https://${runpodEndpointId}.api.runpod.ai/v2/${runpodEndpointId}`;
   const runRes = await fetch(
-    `https://api.runpod.ai/v2/${runpodEndpointId}/run`,
+    `${baseUrl}/run`,
     {
       method: "POST",
       headers: {
@@ -67,7 +68,7 @@ async function transcribeWithRunpod(
     await new Promise((r) => setTimeout(r, pollInterval));
 
     const statusRes = await fetch(
-      `https://api.runpod.ai/v2/${runpodEndpointId}/status/${jobId}`,
+      `${baseUrl}/status/${jobId}`,
       {
         headers: { Authorization: `Bearer ${runpodApiKey}` },
       }
