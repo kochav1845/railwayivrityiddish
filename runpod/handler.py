@@ -12,6 +12,9 @@ MODEL_ID = "ivrit-ai/yi-whisper-large-v3-turbo"
 BAKED_MODEL_DIR = "/app/model"
 VOLUME_MODEL_DIR = "/runpod-volume/model"
 
+pipe = None
+
+
 def get_model_path():
     if os.path.isdir(BAKED_MODEL_DIR) and os.listdir(BAKED_MODEL_DIR):
         print(f"Loading model from baked-in image: {BAKED_MODEL_DIR}")
@@ -31,31 +34,39 @@ def get_model_path():
     print("Download complete.")
     return VOLUME_MODEL_DIR
 
-model_path = get_model_path()
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+def load_model():
+    global pipe
+    if pipe is not None:
+        return pipe
 
-model = AutoModelForSpeechSeq2Seq.from_pretrained(
-    model_path,
-    torch_dtype=torch_dtype,
-    low_cpu_mem_usage=True,
-    use_safetensors=True,
-)
-model.to(device)
+    print("Loading model into memory...")
+    model_path = get_model_path()
 
-processor = AutoProcessor.from_pretrained(model_path)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-pipe = pipeline(
-    "automatic-speech-recognition",
-    model=model,
-    tokenizer=processor.tokenizer,
-    feature_extractor=processor.feature_extractor,
-    torch_dtype=torch_dtype,
-    device=device,
-)
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+        model_path,
+        torch_dtype=torch_dtype,
+        low_cpu_mem_usage=True,
+        use_safetensors=True,
+    )
+    model.to(device)
 
-print(f"Model {MODEL_ID} loaded on {device}.")
+    processor = AutoProcessor.from_pretrained(model_path)
+
+    pipe = pipeline(
+        "automatic-speech-recognition",
+        model=model,
+        tokenizer=processor.tokenizer,
+        feature_extractor=processor.feature_extractor,
+        torch_dtype=torch_dtype,
+        device=device,
+    )
+
+    print(f"Model {MODEL_ID} loaded on {device}.")
+    return pipe
 
 
 def handler(job):
@@ -70,6 +81,8 @@ def handler(job):
         ext = f".{ext}"
 
     audio_bytes = base64.b64decode(audio_base64)
+
+    asr_pipe = load_model()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(audio_bytes)
@@ -88,7 +101,7 @@ def handler(job):
             if proc.returncode == 0:
                 input_path = wav_path
 
-        result = pipe(
+        result = asr_pipe(
             input_path,
             generate_kwargs={"task": "transcribe", "language": "yi"},
             return_timestamps=True,
