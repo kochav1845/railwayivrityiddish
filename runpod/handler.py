@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 import base64
@@ -87,7 +88,8 @@ def handler(job):
             generate_kwargs={"task": "transcribe", "language": "yi"},
             return_timestamps=True,
         )
-        transcription = result.get("text", "").strip()
+        raw_text = result.get("text", "").strip()
+        transcription = re.sub(r'[\u0591-\u05C7]', '', raw_text)
 
         return {
             "transcription": transcription,
