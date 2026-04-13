@@ -82,9 +82,6 @@ def handler(job):
 
     audio_bytes = base64.b64decode(audio_base64)
 
-    if len(audio_bytes) < 1000:
-        return {"transcription": "", "file_size_bytes": len(audio_bytes), "language": "yiddish"}
-
     asr_pipe = load_model()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
