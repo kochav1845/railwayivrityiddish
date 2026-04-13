@@ -9,14 +9,19 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 from huggingface_hub import snapshot_download
 
 MODEL_ID = "ivrit-ai/yi-whisper-large-v3-turbo"
+BAKED_MODEL_DIR = "/app/model"
 VOLUME_MODEL_DIR = "/runpod-volume/model"
 
 def get_model_path():
+    if os.path.isdir(BAKED_MODEL_DIR) and os.listdir(BAKED_MODEL_DIR):
+        print(f"Loading model from baked-in image: {BAKED_MODEL_DIR}")
+        return BAKED_MODEL_DIR
+
     if os.path.isdir(VOLUME_MODEL_DIR) and os.listdir(VOLUME_MODEL_DIR):
         print(f"Loading model from network volume: {VOLUME_MODEL_DIR}")
         return VOLUME_MODEL_DIR
 
-    print(f"Network volume empty or missing. Downloading {MODEL_ID} to {VOLUME_MODEL_DIR}...")
+    print(f"No local model found. Downloading {MODEL_ID} to {VOLUME_MODEL_DIR}...")
     os.makedirs(VOLUME_MODEL_DIR, exist_ok=True)
     snapshot_download(
         repo_id=MODEL_ID,

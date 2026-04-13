@@ -15,6 +15,8 @@ WORKDIR /app
 COPY runpod/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
+RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download('ivrit-ai/yi-whisper-large-v3-turbo', local_dir='/app/model', local_dir_use_symlinks=False)"
+
 COPY runpod/handler.py .
 
 CMD ["python3", "-u", "handler.py"]
